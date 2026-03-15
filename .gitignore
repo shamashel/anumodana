@@ -1,0 +1,7 @@
+.venv/
+.uv-cache/
+__pycache__/
+*.wav
+*.vtt
+*.json
+*.tmp

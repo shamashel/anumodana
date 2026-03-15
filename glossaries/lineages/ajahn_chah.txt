@@ -1,0 +1,23 @@
+# Terms and names common in the Ajahn Chah / Thai Forest lineage.
+
+Ajahn
+Ajahn Chah
+Ajahn Sumedho
+Ajahn Amaro
+Ajahn Jayasaro
+Ajahn Mahabua
+Ajahn Wade Bhuripanyo
+Ajahn Wade
+Bhuripanyo
+Thai Forest tradition
+Thai Forest lineage
+Wat Pah Pong
+Wat Nanachat
+
+# Common ASR corruptions.
+Ajan => Ajahn
+Ajan Cha => Ajahn Chah
+Achan Chah => Ajahn Chah
+Achan Shah => Ajahn Chah
+Achan Mahapua => Ajahn Mahabua
+Buripanyo => Bhuripanyo

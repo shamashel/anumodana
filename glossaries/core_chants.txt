@@ -1,0 +1,36 @@
+# Canonical chants and refuge formulas.
+# Prefer these spellings when the audio is clearly attempting these well-known lines.
+
+Namo tassa bhagavato arahato samma-sambuddhassa
+Buddham saranam gacchami
+Dhammam saranam gacchami
+Sangham saranam gacchami
+Dutiyampi Buddham saranam gacchami
+Dutiyampi Dhammam saranam gacchami
+Dutiyampi Sangham saranam gacchami
+Tatiyampi Buddham saranam gacchami
+Tatiyampi Dhammam saranam gacchami
+Tatiyampi Sangham saranam gacchami
+Buddham Dhammam Sangham namassami
+Homage to the Blessed One, the Worthy One, the Perfectly Self-Awakened One.
+
+# Common ASR corruptions that may indicate the same chant family.
+namotasa => Namo tassa
+namo tasa => Namo tassa
+Namo Tasa => Namo tassa
+Nammo Tasa => Namo tassa
+pakawato => bhagavato
+bagawato => bhagavato
+pagawato => bhagavato
+Bhagavato Aruhato Sama Sampuitas => bhagavato arahato samma-sambuddhassa
+aruhato => arahato
+arahatto => arahato
+samputasa => samma-sambuddhassa
+sampuitas => samma-sambuddhassa
+sampuitasa => samma-sambuddhassa
+Sama Sampuitas => samma-sambuddhassa
+Sama Samputasa => samma-sambuddhassa
+Nat Mohato Sama Sampuitasa => Namo tassa bhagavato arahato samma-sambuddhassa
+sanghang namasami => Sangham namassami
+putang tamang sanghang namasami => Buddham Dhammam Sangham namassami
+Putang Tamang San Kang Namasamy => Buddham Dhammam Sangham namassami

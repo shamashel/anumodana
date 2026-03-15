@@ -1,0 +1,36 @@
+# Common Theravada / Pali vocabulary.
+# Prefer ASCII transliteration unless the original clearly uses diacritics.
+
+Theravada
+Pali
+Dhamma
+Sangha
+Buddha
+samsara
+metta
+anumodana
+sadhu
+dukkha
+anicca
+anatta
+jhana
+nibbana
+Vinaya
+sutta
+suttas
+Mahamangala Sutta
+Karaniya Metta Sutta
+Bodhi tree
+meditators
+
+# Common ASR corruptions.
+Songsara => samsara
+songsara => samsara
+Tamma => Dhamma
+Buddhi tree => Bodhi tree
+Anumotana => anumodana
+Anamotana => anumodana
+Anumotsana => anumodana
+Anumodana everyone => anumodana everyone
+Anumodana, everyone => anumodana, everyone
+Sadu => sadhu

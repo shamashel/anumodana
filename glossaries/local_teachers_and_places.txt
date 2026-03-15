@@ -1,0 +1,15 @@
+# Add local teachers, monasteries, retreat centers, Zoom hosts, or session-specific spellings here.
+# Keep one item or alias mapping per line.
+#
+# Example:
+# Ajahn Wade Bhuripanyo
+# Lotus Path
+# New England Forest Monastery
+# Buripanyo => Bhuripanyo
+
+Ajahn Wade Bhuripanyo
+Ajahn Wade
+Bhuripanyo
+Lotus Path
+Lotus Path Sunday
+Buripanyo => Bhuripanyo
