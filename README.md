@@ -6,7 +6,7 @@ Right now, it is primarily aimed at English-speaking communities. It works best 
 
 It takes a folder of video or audio files and produces:
 
-- a same-name mono 16 kHz `.wav`
+- a same-name mono 16 kHz `.mp3`
 - a raw Parakeet transcript: `.parakeet.raw.vtt`
 - a cleaned subtitle file: `.vtt`
 - a review file: `.review.json`
@@ -16,7 +16,7 @@ It takes a folder of video or audio files and produces:
 The current pipeline is:
 
 1. media file
-2. `.wav`
+2. `.mp3`
 3. `nvidia/parakeet-tdt-0.6b-v3`
 4. local `qwen3.5:4b` cleanup pass
 5. local review pass
@@ -151,8 +151,8 @@ uv run python batch_parakeet_tree.py --keep-models-loaded
 
 For each teaching, the pipeline writes:
 
-- `session.wav`
-  A same-name mono 16 kHz WAV copy for transcription.
+- `session.mp3`
+  A same-name mono 16 kHz MP3 audio copy for listening, sharing, or archiving.
 - `session.parakeet.raw.vtt`
   The direct ASR output from Parakeet before cleanup.
 - `session.vtt`

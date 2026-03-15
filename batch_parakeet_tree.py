@@ -38,6 +38,8 @@ DEFAULT_QWEN_CONTEXT_WINDOW = 8192
 DEFAULT_REVIEW_TEMPERATURE = REVIEW_TEMPERATURE_DEFAULT
 DEFAULT_REVIEW_CONTEXT_WINDOW = REVIEW_CONTEXT_WINDOW_DEFAULT
 DEFAULT_MANIFEST_NAME = "_anumodana_review_manifest.csv"
+DEFAULT_AUDIO_EXTENSION = ".mp3"
+DEFAULT_AUDIO_BITRATE = "48k"
 SUPPORTED_EXTENSIONS = {
     ".aac",
     ".flac",
@@ -73,12 +75,12 @@ EXCLUDED_DIR_NAMES = {".git", ".venv", ".uv-cache", ".uv-python", "__pycache__"}
 @dataclass(frozen=True)
 class Job:
     source_path: Path
-    wav_path: Path
+    audio_path: Path
     raw_vtt_path: Path
     vtt_path: Path
     review_json_path: Path
     review_md_path: Path
-    needs_wav: bool
+    needs_audio: bool
     needs_raw_vtt: bool
     needs_vtt: bool
     needs_review: bool
@@ -86,7 +88,7 @@ class Job:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Walk a tree, create same-name WAV files, transcribe with Parakeet v3, and clean VTTs with Qwen."
+        description="Walk a tree, create same-name MP3 audio copies, transcribe with Parakeet v3, and clean VTTs with Qwen."
     )
     parser.add_argument(
         "--root",
@@ -107,13 +109,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--overwrite",
         action="store_true",
-        help="Rebuild existing WAV and VTT outputs instead of skipping them.",
+        help="Rebuild existing audio and VTT outputs instead of skipping them.",
     )
     parser.add_argument(
         "--chunk-seconds",
         type=int,
         default=DEFAULT_CHUNK_SECONDS,
-        help="Chunk long WAV files into this many seconds before Parakeet transcription.",
+        help="Chunk audio into this many seconds before Parakeet transcription.",
     )
     parser.add_argument(
         "--dry-run",
@@ -257,6 +259,12 @@ def review_md_output_path(source_path: Path) -> Path:
     return source_path.with_name(f"{source_path.stem}.review.md")
 
 
+def audio_output_path(source_path: Path) -> Path:
+    if source_path.suffix.lower() == DEFAULT_AUDIO_EXTENSION:
+        return source_path
+    return source_path.with_suffix(DEFAULT_AUDIO_EXTENSION)
+
+
 def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[Job], int]:
     grouped: dict[tuple[Path, str], list[Path]] = {}
     for path in sorted(root.rglob("*")):
@@ -275,29 +283,29 @@ def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[J
 
     for candidates in grouped.values():
         source_path = choose_source(candidates)
-        wav_path = source_path if source_path.suffix.lower() == ".wav" else source_path.with_suffix(".wav")
+        audio_path = audio_output_path(source_path)
         raw_vtt_path = raw_vtt_output_path(source_path)
         vtt_path = source_path.with_suffix(".vtt")
         review_json_path = review_json_output_path(source_path)
         review_md_path = review_md_output_path(source_path)
-        has_wav = wav_path.exists()
+        has_audio = audio_path.exists()
         has_raw_vtt = raw_vtt_path.exists()
         has_vtt = vtt_path.exists()
         has_review = review_json_path.exists() and review_md_path.exists()
 
-        if not overwrite and has_wav and has_raw_vtt and has_vtt and (has_review or not run_review):
+        if not overwrite and has_audio and has_raw_vtt and has_vtt and (has_review or not run_review):
             skipped += 1
             continue
 
         jobs.append(
             Job(
                 source_path=source_path,
-                wav_path=wav_path,
+                audio_path=audio_path,
                 raw_vtt_path=raw_vtt_path,
                 vtt_path=vtt_path,
                 review_json_path=review_json_path,
                 review_md_path=review_md_path,
-                needs_wav=overwrite or not has_wav,
+                needs_audio=overwrite or not has_audio,
                 needs_raw_vtt=overwrite or not has_raw_vtt,
                 needs_vtt=overwrite or not has_vtt,
                 needs_review=run_review and (overwrite or not has_review),
@@ -308,7 +316,7 @@ def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[J
     return jobs, skipped
 
 
-def extract_wav(source_path: Path, wav_path: Path) -> None:
+def extract_audio_copy(source_path: Path, audio_path: Path) -> None:
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
         raise FileNotFoundError(
@@ -326,8 +334,10 @@ def extract_wav(source_path: Path, wav_path: Path) -> None:
         "-ar",
         "16000",
         "-c:a",
-        "pcm_s16le",
-        str(wav_path),
+        "libmp3lame",
+        "-b:a",
+        DEFAULT_AUDIO_BITRATE,
+        str(audio_path),
     ]
     process = subprocess.run(
         command,
@@ -340,8 +350,8 @@ def extract_wav(source_path: Path, wav_path: Path) -> None:
     )
     if process.returncode != 0:
         raise RuntimeError(process.stdout.strip() or f"ffmpeg exited with code {process.returncode}")
-    if not wav_path.exists():
-        raise RuntimeError("ffmpeg finished without creating the expected WAV file.")
+    if not audio_path.exists():
+        raise RuntimeError("ffmpeg finished without creating the expected audio file.")
 
 
 def get_media_duration_seconds(path: Path) -> float:
@@ -455,7 +465,7 @@ def iter_chunk_ranges(duration_seconds: float, chunk_seconds: int) -> list[tuple
     return ranges
 
 
-def extract_chunk(source_wav: Path, chunk_path: Path, start_seconds: float, duration_seconds: float) -> None:
+def extract_chunk_wav(source_media: Path, chunk_path: Path, start_seconds: float, duration_seconds: float) -> None:
     ffmpeg_path = shutil.which("ffmpeg")
     if not ffmpeg_path:
         raise FileNotFoundError(
@@ -470,9 +480,14 @@ def extract_chunk(source_wav: Path, chunk_path: Path, start_seconds: float, dura
         "-t",
         f"{duration_seconds:.3f}",
         "-i",
-        str(source_wav),
-        "-acodec",
-        "copy",
+        str(source_media),
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "pcm_s16le",
         str(chunk_path),
     ]
     process = subprocess.run(
@@ -490,12 +505,12 @@ def extract_chunk(source_wav: Path, chunk_path: Path, start_seconds: float, dura
         raise RuntimeError("ffmpeg finished without creating the expected chunk WAV file.")
 
 
-def prepare_wav(job: Job) -> Path:
-    if job.source_path.suffix.lower() == ".wav":
+def prepare_audio(job: Job) -> Path:
+    if job.source_path.suffix.lower() == DEFAULT_AUDIO_EXTENSION:
         return job.source_path
-    if job.needs_wav:
-        extract_wav(job.source_path, job.wav_path)
-    return job.wav_path
+    if job.needs_audio:
+        extract_audio_copy(job.source_path, job.audio_path)
+    return job.audio_path
 
 
 def load_model(model_name: str) -> object:
@@ -532,11 +547,8 @@ def transcribe_wav(model: object, wav_path: Path) -> object:
     return outputs[0]
 
 
-def transcribe_wav_to_entries(model: object, wav_path: Path, chunk_seconds: int) -> list[tuple[float, float, str]]:
-    duration_seconds = get_media_duration_seconds(wav_path)
-    if duration_seconds <= chunk_seconds:
-        return build_vtt_entries(transcribe_wav(model, wav_path))
-
+def transcribe_audio_to_entries(model: object, source_media: Path, chunk_seconds: int) -> list[tuple[float, float, str]]:
+    duration_seconds = get_media_duration_seconds(source_media)
     entries: list[tuple[float, float, str]] = []
     with TemporaryDirectory(prefix="parakeet_chunks_") as temp_dir:
         temp_dir_path = Path(temp_dir)
@@ -549,7 +561,7 @@ def transcribe_wav_to_entries(model: object, wav_path: Path, chunk_seconds: int)
                 f"  Chunk {chunk_index}: {start_seconds:.1f}s -> {start_seconds + length_seconds:.1f}s",
                 flush=True,
             )
-            extract_chunk(wav_path, chunk_path, start_seconds, length_seconds)
+            extract_chunk_wav(source_media, chunk_path, start_seconds, length_seconds)
             hypothesis = transcribe_wav(model, chunk_path)
             entries.extend(build_vtt_entries(hypothesis, offset_seconds=start_seconds))
 
@@ -594,7 +606,7 @@ def build_manifest_rows(root: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for candidates in grouped.values():
         source_path = choose_source(candidates)
-        wav_path = source_path if source_path.suffix.lower() == ".wav" else source_path.with_suffix(".wav")
+        audio_path = audio_output_path(source_path)
         raw_vtt_path = raw_vtt_output_path(source_path)
         cleaned_vtt_path = source_path.with_suffix(".vtt")
         review_json_path = review_json_output_path(source_path)
@@ -605,7 +617,7 @@ def build_manifest_rows(root: Path) -> list[dict[str, str]]:
         rows.append(
             {
                 "source_path": str(source_path),
-                "wav_path": str(wav_path) if wav_path.exists() else "",
+                "audio_path": str(audio_path) if audio_path.exists() else "",
                 "raw_vtt_path": str(raw_vtt_path) if raw_vtt_path.exists() else "",
                 "cleaned_vtt_path": str(cleaned_vtt_path) if cleaned_vtt_path.exists() else "",
                 "review_json_path": str(review_json_path) if review_json_path.exists() else "",
@@ -628,7 +640,7 @@ def build_manifest_rows(root: Path) -> list[dict[str, str]]:
 def write_manifest_csv(csv_path: Path, rows: list[dict[str, str]]) -> None:
     fieldnames = [
         "source_path",
-        "wav_path",
+        "audio_path",
         "raw_vtt_path",
         "cleaned_vtt_path",
         "review_json_path",
@@ -699,7 +711,7 @@ def main() -> int:
     if args.dry_run:
         for index, job in enumerate(jobs, start=1):
             print(f"[{index}] {job.source_path}", flush=True)
-            print(f"    wav: {job.wav_path} ({'build' if job.needs_wav else 'reuse'})", flush=True)
+            print(f"    audio: {job.audio_path} ({'build' if job.needs_audio else 'reuse'})", flush=True)
             print(f"    raw_vtt: {job.raw_vtt_path} ({'build' if job.needs_raw_vtt else 'reuse'})", flush=True)
             vtt_mode = "build" if job.needs_vtt else "reuse"
             if not args.skip_qwen:
@@ -730,11 +742,11 @@ def main() -> int:
             print("", flush=True)
             print(f"[{index}/{len(jobs)}] {job.source_path}", flush=True)
             try:
-                wav_path = prepare_wav(job)
-                print(f"WAV: {wav_path}", flush=True)
+                audio_path = prepare_audio(job)
+                print(f"Audio: {audio_path}", flush=True)
                 started = time.perf_counter()
                 if job.needs_raw_vtt or job.needs_vtt:
-                    entries = transcribe_wav_to_entries(model, wav_path, args.chunk_seconds)
+                    entries = transcribe_audio_to_entries(model, audio_path, args.chunk_seconds)
                     write_vtt_entries(entries, job.raw_vtt_path)
                     if args.skip_qwen:
                         shutil.copyfile(job.raw_vtt_path, job.vtt_path)
