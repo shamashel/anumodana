@@ -1,97 +1,181 @@
 # Anumodana
 
-Local transcript tools for Theravada Buddhist talks.
+Anumodana is a local transcription pipeline for Theravada Buddhist talks.
+
+Right now, it is primarily aimed at English-speaking communities. It works best when the main body of the talk is in English, even if it includes some Pali or Buddhist terminology.
+
+It takes a folder of video or audio files and produces:
+
+- a same-name mono 16 kHz `.wav`
+- a raw Parakeet transcript: `.parakeet.raw.vtt`
+- a cleaned subtitle file: `.vtt`
+- a review file: `.review.json`
+- a human-readable review note: `.review.md`
+- a root-level summary file: `_anumodana_review_manifest.csv`
 
 The current pipeline is:
 
-- video or audio file
-- same-name mono 16 kHz `.wav`
-- `nvidia/parakeet-tdt-0.6b-v3`
-- local `qwen3.5:9b` cleanup pass with Buddhist and lineage glossaries
-- same-name cleaned `.vtt`
-- same-name raw `.parakeet.raw.vtt`
-- same-name `.review.json`
-- same-name `.review.md`
-- root-level `_anumodana_review_manifest.csv`
+1. media file
+2. `.wav`
+3. `nvidia/parakeet-tdt-0.6b-v3`
+4. local `qwen3.5:9b` cleanup pass
+5. local review pass
 
-## What Is Here
+## Current Limitations
 
-- `batch_parakeet_tree.py`
-  Walks a directory tree, picks one source per same-name media set, creates `.wav` files, runs Parakeet, writes a raw transcript, applies the Qwen cleanup pass, writes review artifacts, and updates a manifest CSV.
-- `llm_correct_vtt.py`
-  Runs the local Ollama correction step against a `.vtt` file.
-- `review_vtt.py`
-  Reviews a cleaned `.vtt` against its raw ASR transcript and emits structured review data plus a human-readable report.
-- `glossaries/`
-  Modular glossary files for chants, Theravada terminology, Ajahn Chah lineage terms, and local teachers or places.
+- This workflow currently works best for English talks.
+- `nvidia/parakeet-tdt-0.6b-v3` has been a strong local option for English transcription here, but it is not a good fit for Thai-heavy content in this project as currently configured.
+- Pali chants and lineage-specific terminology can still need cleanup or human review, especially at the start of talks.
+- If a talk contains long Thai sections, a different ASR model or a future fine-tuned model may be a better choice.
 
-## Install
+## Who This Is For
+
+This project is meant to be usable by:
+
+- monastics or laypeople who want help transcribing teachings locally
+- technically inclined users who are comfortable running commands
+- people working with an AI coding assistant such as Codex, Claude Code/Coworker, or similar tools
+
+If you are not technical, the easiest path is usually:
+
+1. Install the prerequisites below once.
+2. Open this project in your AI assistant.
+3. Ask it to verify setup, then run `batch_parakeet_tree.py` on your teachings folder.
+4. Ask it to summarize anything flagged for human review in `_anumodana_review_manifest.csv`.
+
+## Quick Start
+
+### 1. Install prerequisites
+
+You need:
+
+- `uv`
+- Python 3.12
+- FFmpeg
+- [Ollama](https://ollama.com/)
+- the local model `qwen3.5:9b`
+
+If you already have `uv`, the repo can set up Python and dependencies with:
 
 ```powershell
-uv python install 3.12 --default
-uv venv .venv --python 3.12
-uv pip install -r requirements.txt
+uv sync
 ```
 
-You also need:
-
-- an FFmpeg build on `PATH`, or under `%LOCALAPPDATA%\Programs\ffmpeg`
-- [Ollama](https://ollama.com/) with `qwen3.5:9b` pulled locally
-
-Example:
+Then pull the local cleanup model:
 
 ```powershell
 ollama pull qwen3.5:9b
 ```
 
-## Batch Run
-
-Default root:
+FFmpeg should either be on your `PATH`, or installed under:
 
 ```text
-C:\Users\Shamash\Downloads\Trimmed
+%LOCALAPPDATA%\Programs\ffmpeg
 ```
 
-Run the full pipeline:
+### 2. Put your teachings in one folder tree
+
+By default, the script looks in:
+
+```text
+~/Downloads/Trimmed
+```
+
+On Windows, that is usually something like:
+
+```text
+C:\Users\<you>\Downloads\Trimmed
+```
+
+### 3. Run the pipeline
 
 ```powershell
 uv run python batch_parakeet_tree.py
 ```
 
-Useful flags:
+To run a different folder:
+
+```powershell
+uv run python batch_parakeet_tree.py --root "C:\path\to\teachings"
+```
+
+## If You Are Using An AI Helper
+
+You can usually tell your AI assistant something like:
+
+```text
+Please verify this repo is set up correctly, make sure CUDA is available, then run the transcription pipeline on my teachings folder and summarize anything that needs human review.
+```
+
+That is often the smoothest path for non-technical users.
+
+## Common Commands
+
+Dry run without writing files:
 
 ```powershell
 uv run python batch_parakeet_tree.py --dry-run
+```
+
+Only process the first 5 files:
+
+```powershell
 uv run python batch_parakeet_tree.py --limit 5
+```
+
+Overwrite existing outputs:
+
+```powershell
 uv run python batch_parakeet_tree.py --overwrite
+```
+
+Skip cleanup:
+
+```powershell
 uv run python batch_parakeet_tree.py --skip-qwen
+```
+
+Skip review:
+
+```powershell
 uv run python batch_parakeet_tree.py --skip-review
+```
+
+Keep models loaded after the run:
+
+```powershell
 uv run python batch_parakeet_tree.py --keep-models-loaded
 ```
 
-Per source file, the batch script now writes:
+## What The Files Mean
+
+For each teaching, the pipeline writes:
 
 - `session.wav`
+  A same-name mono 16 kHz WAV copy for transcription.
 - `session.parakeet.raw.vtt`
+  The direct ASR output from Parakeet before cleanup.
 - `session.vtt`
+  The cleaned subtitle file after the local Qwen pass.
 - `session.review.json`
+  Structured review data.
 - `session.review.md`
+  A human-readable review note.
 
 At the root of the run, it also writes:
 
 - `_anumodana_review_manifest.csv`
-
-By default, the batch script unloads both the Parakeet model and the Ollama model when it exits.
+  A one-row-per-session summary of outputs and review status.
 
 ## Standalone Cleanup
 
-If you already have a raw `.vtt`, run just the cleanup pass:
+If you already have a raw `.vtt`, you can run just the cleanup step:
 
 ```powershell
 uv run python llm_correct_vtt.py "C:\path\to\input.vtt"
 ```
 
-Useful flags:
+Useful options:
 
 ```powershell
 uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --batch-size 0
@@ -102,18 +186,13 @@ uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --keep-model-loaded
 
 ## Standalone Review
 
-If you already have both a raw ASR transcript and a cleaned transcript, run the review pass like this:
+If you already have both a raw transcript and a cleaned transcript:
 
 ```powershell
 uv run python review_vtt.py "C:\path\to\session.parakeet.raw.vtt" "C:\path\to\session.vtt"
 ```
 
-That writes:
-
-- `session.review.json`
-- `session.review.md`
-
-The structured review output includes:
+The review output includes:
 
 - `summary`
 - `review_notes`
@@ -129,4 +208,67 @@ The default correction stack loads these files in order:
 - `glossaries/lineages/ajahn_chah.txt`
 - `glossaries/local_teachers_and_places.txt`
 
-That keeps the project easy to adapt for another lineage or community without changing the code.
+This makes it easier to adapt the project for a different monastery, lineage, or local community.
+
+## For AI Agents
+
+Use this section as the fast path.
+
+### Setup checklist
+
+1. Run `uv sync` in the repo root.
+2. Verify CUDA is available:
+
+```powershell
+uv run python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')"
+```
+
+3. Verify Ollama is installed and the cleanup model exists:
+
+```powershell
+ollama list
+```
+
+Look for `qwen3.5:9b`. If missing:
+
+```powershell
+ollama pull qwen3.5:9b
+```
+
+4. Verify FFmpeg is available:
+
+```powershell
+ffmpeg -version
+ffprobe -version
+```
+
+### Basic verification
+
+Check the pipeline without modifying data:
+
+```powershell
+uv run python batch_parakeet_tree.py --root "<teachings folder>" --dry-run
+```
+
+If the user wants a real run:
+
+```powershell
+uv run python batch_parakeet_tree.py --root "<teachings folder>"
+```
+
+### What to tell the human
+
+Surface these things clearly:
+
+- whether CUDA is actually being used or if the run fell back to CPU
+- whether the required models were downloaded successfully
+- which file is currently being processed
+- where `_anumodana_review_manifest.csv` was written
+- whether any sessions were flagged with `needs_human_review = true`
+- any failures involving missing FFmpeg, missing Ollama, missing model files, or CUDA not being available
+
+If the run succeeds, direct the human to:
+
+- the cleaned `.vtt` files for normal use
+- the `.review.md` files for human-readable concerns
+- `_anumodana_review_manifest.csv` for the overall summary
