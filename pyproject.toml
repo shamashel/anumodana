@@ -1,0 +1,20 @@
+[project]
+name = "anumodana"
+version = "0.1.0"
+description = "Local transcription and review tools for Buddhist talks"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch",
+    "nemo_toolkit[asr]",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv]
+package = false
