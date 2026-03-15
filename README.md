@@ -18,7 +18,7 @@ The current pipeline is:
 1. media file
 2. `.wav`
 3. `nvidia/parakeet-tdt-0.6b-v3`
-4. local `qwen3.5:9b` cleanup pass
+4. local `qwen3.5:4b` cleanup pass
 5. local review pass
 
 ## Current Limitations
@@ -53,7 +53,7 @@ You need:
 - Python 3.12
 - FFmpeg
 - [Ollama](https://ollama.com/)
-- the local model `qwen3.5:9b`
+- the local model `qwen3.5:4b`
 
 If you already have `uv`, the repo can set up Python and dependencies with:
 
@@ -64,7 +64,7 @@ uv sync
 Then pull the local cleanup model:
 
 ```powershell
-ollama pull qwen3.5:9b
+ollama pull qwen3.5:4b
 ```
 
 FFmpeg should either be on your `PATH`, or installed under:
@@ -229,10 +229,10 @@ uv run python -c "import torch; print(torch.__version__); print(torch.cuda.is_av
 ollama list
 ```
 
-Look for `qwen3.5:9b`. If missing:
+Look for `qwen3.5:4b`. If missing:
 
 ```powershell
-ollama pull qwen3.5:9b
+ollama pull qwen3.5:4b
 ```
 
 4. Verify FFmpeg is available:

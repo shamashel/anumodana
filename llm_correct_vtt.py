@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -13,9 +14,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-DEFAULT_MODEL = "qwen3.5:9b"
+DEFAULT_MODEL = "qwen3.5:4b"
 DEFAULT_OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
-DEFAULT_BATCH_SIZE = 0
+DEFAULT_BATCH_SIZE = 16
+DEFAULT_MAX_BATCH_CHARACTERS = 3200
+DEFAULT_MAX_PROMPT_TOKENS = 2600
 DEFAULT_GLOSSARY_FILES = [
     Path(__file__).with_name("glossaries") / "core_chants.txt",
     Path(__file__).with_name("glossaries") / "core_theravada_terms.txt",
@@ -152,10 +155,59 @@ def parse_vtt(path: Path) -> list[Cue]:
     return cues
 
 
-def batch_cues(cues: list[Cue], batch_size: int) -> list[list[Cue]]:
-    if batch_size <= 0 or batch_size >= len(cues):
+def estimate_tokens(text: str) -> int:
+    # Conservative English-ish heuristic for Ollama prompt sizing.
+    return max(1, math.ceil(len(text) / 4))
+
+
+def build_cue_batches(
+    cues: list[Cue],
+    batch_size: int,
+    max_batch_characters: int,
+    *,
+    glossary_lines: list[str],
+    max_prompt_tokens: int,
+) -> list[list[Cue]]:
+    if not cues:
+        return []
+    if (
+        (batch_size <= 0 or batch_size >= len(cues))
+        and max_batch_characters <= 0
+        and max_prompt_tokens <= 0
+    ):
         return [cues]
-    return [cues[start : start + batch_size] for start in range(0, len(cues), batch_size)]
+
+    batches: list[list[Cue]] = []
+    current_batch: list[Cue] = []
+    current_characters = 0
+
+    for cue in cues:
+        cue_characters = len(cue.text)
+        would_hit_count_cap = batch_size > 0 and len(current_batch) >= batch_size
+        would_hit_character_cap = (
+            max_batch_characters > 0
+            and current_batch
+            and current_characters + cue_characters > max_batch_characters
+        )
+        would_hit_prompt_cap = False
+        if max_prompt_tokens > 0 and current_batch:
+            candidate_prompt = build_prompt(current_batch + [cue], glossary_lines)
+            would_hit_prompt_cap = estimate_tokens(candidate_prompt) > max_prompt_tokens
+        if would_hit_count_cap or would_hit_character_cap:
+            batches.append(current_batch)
+            current_batch = []
+            current_characters = 0
+        elif would_hit_prompt_cap:
+            batches.append(current_batch)
+            current_batch = []
+            current_characters = 0
+
+        current_batch.append(cue)
+        current_characters += cue_characters
+
+    if current_batch:
+        batches.append(current_batch)
+    return batches
 
 
 def load_glossary_lines(glossary_paths: list[Path]) -> list[str]:
@@ -367,16 +419,43 @@ def correct_cues(
         loaded_glossary_lines = load_glossary_lines(glossary_paths or [])
 
     corrected: dict[int, str] = {}
-    batches = batch_cues(cues, batch_size)
+    resolved_batch_size = batch_size
+    max_batch_characters = DEFAULT_MAX_BATCH_CHARACTERS
+    max_prompt_tokens = DEFAULT_MAX_PROMPT_TOKENS
+    batches = build_cue_batches(
+        cues,
+        resolved_batch_size,
+        max_batch_characters,
+        glossary_lines=loaded_glossary_lines,
+        max_prompt_tokens=max_prompt_tokens,
+    )
     if progress and glossary_paths:
         print("Glossaries:", flush=True)
         for path in glossary_paths:
             print(f"  {path}", flush=True)
     if progress:
         print(f"Glossary entries loaded: {len(loaded_glossary_lines)}", flush=True)
+        label = "whole transcript" if resolved_batch_size <= 0 else str(resolved_batch_size)
+        print(f"Cleanup batch size: {label}", flush=True)
+        character_label = "unlimited" if max_batch_characters <= 0 else str(max_batch_characters)
+        print(f"Cleanup max batch characters: {character_label}", flush=True)
+        token_label = "unlimited" if max_prompt_tokens <= 0 else str(max_prompt_tokens)
+        print(f"Cleanup max prompt tokens: {token_label}", flush=True)
     for batch_number, batch in enumerate(batches, start=1):
         if progress:
-            print(f"Batch {batch_number}/{len(batches)}: cues {batch[0].index}-{batch[-1].index}", flush=True)
+            batch_characters = sum(len(cue.text) for cue in batch)
+            prompt_tokens = estimate_tokens(build_prompt(batch, loaded_glossary_lines))
+            print(
+                " ".join(
+                    [
+                        f"Batch {batch_number}/{len(batches)}:",
+                        f"cues {batch[0].index}-{batch[-1].index}",
+                        f"chars={batch_characters}",
+                        f"prompt_tokens~={prompt_tokens}",
+                    ]
+                ),
+                flush=True,
+            )
         corrected.update(
             process_batch(
                 batch=batch,
