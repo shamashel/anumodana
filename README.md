@@ -166,6 +166,48 @@ Show verbose library diagnostics during transcription:
 uv run python -m anumodana --verbose
 ```
 
+### Choosing chunk size
+
+The Parakeet transcription step uses `--chunk-seconds` to decide how much audio to send through the model at once.
+
+The default is `120`, and that is the recommended starting point.
+
+Practical rule of thumb:
+
+- `60` seconds is a safer choice if your GPU is also driving your desktop and you want to minimize lag or VRAM spikes.
+- `120` seconds is the recommended default and worked well in testing here.
+- `180` seconds can be reasonable on high-VRAM GPUs, but it is a more aggressive setting.
+- `240` seconds should be treated as an upper-end setting to test carefully, not a new default.
+- Avoid jumping straight to very large chunks like `600` seconds unless you have measured that it behaves well on your specific machine.
+
+Rough GPU memory observations from one Windows machine with an RTX 4090:
+
+- `30` seconds: about `+200 MiB` during transcription
+- `60` seconds: about `+500 MiB`
+- `120` seconds: about `+1.0 GiB`
+- `180` seconds: about `+1.7 GiB`
+- `240` seconds: about `+2.9 GiB`
+
+Treat those numbers as a rough heuristic, not a promise. PyTorch and CUDA caching can make the baseline move around between runs, and your results can differ based on driver mode, background GPU usage, and whether the GPU is also running the desktop.
+
+Why this matters:
+
+- larger chunks reduce chunk boundaries, but they also raise GPU memory pressure
+- on a display-attached GPU, high VRAM pressure can make the whole computer feel sluggish even if the run does not crash
+- if you notice lag, go smaller first rather than larger
+
+If you are unsure, stay with the default:
+
+```powershell
+uv run python -m anumodana
+```
+
+If you want a more conservative setting:
+
+```powershell
+uv run python -m anumodana --chunk-seconds 60
+```
+
 ## What The Files Mean
 
 For each teaching, the pipeline writes:
