@@ -70,6 +70,11 @@ SOURCE_PRIORITY = {
     ".wav": 11,
 }
 EXCLUDED_DIR_NAMES = {".git", ".venv", ".uv-cache", ".uv-python", "__pycache__"}
+TRANSIENT_SIDECAR_SUFFIXES = (
+    ".distil.whisper.json",
+    ".whisper.json",
+    ".whisper-input.wav",
+)
 
 
 @dataclass(frozen=True)
@@ -263,6 +268,35 @@ def audio_output_path(source_path: Path) -> Path:
     if source_path.suffix.lower() == DEFAULT_AUDIO_EXTENSION:
         return source_path
     return source_path.with_suffix(DEFAULT_AUDIO_EXTENSION)
+
+
+def cleanup_transient_artifacts(job: Job) -> list[Path]:
+    keep_paths = {
+        job.source_path.resolve(),
+        job.audio_path.resolve(),
+        job.raw_vtt_path.resolve(),
+        job.vtt_path.resolve(),
+        job.review_json_path.resolve(),
+        job.review_md_path.resolve(),
+    }
+    candidates: list[Path] = []
+    stem_path = job.source_path.with_suffix("")
+    for suffix in TRANSIENT_SIDECAR_SUFFIXES:
+        candidates.append(Path(f"{stem_path}{suffix}"))
+    if job.source_path.suffix.lower() != ".wav":
+        candidates.append(job.source_path.with_suffix(".wav"))
+
+    removed: list[Path] = []
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except FileNotFoundError:
+            continue
+        if resolved in keep_paths or not candidate.exists() or not candidate.is_file():
+            continue
+        candidate.unlink()
+        removed.append(candidate)
+    return removed
 
 
 def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[Job], int]:
@@ -794,6 +828,9 @@ def main() -> int:
                 if run_review:
                     print(f"Wrote review JSON: {job.review_json_path}", flush=True)
                     print(f"Wrote review markdown: {job.review_md_path}", flush=True)
+                removed_artifacts = cleanup_transient_artifacts(job)
+                for removed_path in removed_artifacts:
+                    print(f"Removed transient artifact: {removed_path}", flush=True)
                 print(f"Transcription time: {elapsed:.2f}s", flush=True)
             except Exception as exc:
                 failures += 1
