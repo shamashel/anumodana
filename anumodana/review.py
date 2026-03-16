@@ -1,20 +1,21 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import sys
 import textwrap
+from collections.abc import Sequence
 from pathlib import Path
 
-from llm_correct_vtt import (
-    DEFAULT_GLOSSARY_FILES,
-    DEFAULT_MODEL,
-    DEFAULT_OLLAMA_URL,
-    call_ollama,
-    load_glossary_lines,
-    unload_ollama_model,
+from anumodana.glossary import DEFAULT_GLOSSARY_FILES, build_glossary_paths, load_glossary_lines
+from anumodana.manifest import (
+    REVIEW_MANIFEST_FIELDNAMES,
+    append_manifest_row,
+    build_review_manifest_row,
 )
+from anumodana.ollama import DEFAULT_MODEL, DEFAULT_OLLAMA_URL, call_ollama, unload_ollama_model
+from anumodana.output_paths import review_json_output_path, review_md_output_path
+
 
 DEFAULT_CONTEXT_WINDOW = 32768
 DEFAULT_TEMPERATURE = 0.1
@@ -88,8 +89,13 @@ Do not:
 """
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(
+    argv: Sequence[str] | None = None,
+    *,
+    prog: str | None = None,
+) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
+        prog=prog,
         description="Review a cleaned VTT against its raw ASR transcript and emit structured review artifacts."
     )
     parser.add_argument("raw_vtt_path", type=str, help="Raw ASR VTT path.")
@@ -117,15 +123,15 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not unload the Ollama model after the review run finishes.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def default_json_output_path(cleaned_vtt_path: Path) -> Path:
-    return cleaned_vtt_path.with_name(f"{cleaned_vtt_path.stem}.review.json")
+    return review_json_output_path(cleaned_vtt_path)
 
 
 def default_md_output_path(cleaned_vtt_path: Path) -> Path:
-    return cleaned_vtt_path.with_name(f"{cleaned_vtt_path.stem}.review.md")
+    return review_md_output_path(cleaned_vtt_path)
 
 
 def build_review_prompt(raw_vtt: str, cleaned_vtt: str, glossary_lines: list[str]) -> str:
@@ -240,50 +246,12 @@ def render_review_markdown(
     return "\n".join(lines) + "\n"
 
 
-def build_manifest_row(
+def main(
+    argv: Sequence[str] | None = None,
     *,
-    raw_vtt_path: Path,
-    cleaned_vtt_path: Path,
-    review_json_path: Path,
-    review_md_path: Path,
-    review: dict[str, object],
-) -> dict[str, str]:
-    review_notes = review.get("review_notes", [])
-    concerns = review.get("concerns", [])
-    return {
-        "raw_vtt_path": str(raw_vtt_path),
-        "cleaned_vtt_path": str(cleaned_vtt_path),
-        "review_json_path": str(review_json_path),
-        "review_md_path": str(review_md_path),
-        "needs_human_review": "true" if review.get("needs_human_review") else "false",
-        "review_note_count": str(len(review_notes) if isinstance(review_notes, list) else 0),
-        "concern_count": str(len(concerns) if isinstance(concerns, list) else 0),
-        "summary": str(review.get("summary", "")).replace("\n", " ").strip(),
-    }
-
-
-def append_manifest_row(csv_path: Path, row: dict[str, str]) -> None:
-    fieldnames = [
-        "raw_vtt_path",
-        "cleaned_vtt_path",
-        "review_json_path",
-        "review_md_path",
-        "needs_human_review",
-        "review_note_count",
-        "concern_count",
-        "summary",
-    ]
-    csv_path.parent.mkdir(parents=True, exist_ok=True)
-    write_header = not csv_path.exists() or csv_path.stat().st_size == 0
-    with csv_path.open("a", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
-
-
-def main() -> int:
-    args = parse_args()
+    prog: str | None = None,
+) -> int:
+    args = parse_args(argv, prog=prog)
     raw_vtt_path = Path(args.raw_vtt_path).expanduser().resolve()
     cleaned_vtt_path = Path(args.cleaned_vtt_path).expanduser().resolve()
     if not raw_vtt_path.exists():
@@ -293,19 +261,13 @@ def main() -> int:
         print(f"Cleaned VTT does not exist: {cleaned_vtt_path}", file=sys.stderr)
         return 1
 
-    output_json = (
-        Path(args.output_json).expanduser().resolve()
-        if args.output_json
-        else default_json_output_path(cleaned_vtt_path)
-    )
-    output_md = (
-        Path(args.output_md).expanduser().resolve()
-        if args.output_md
-        else default_md_output_path(cleaned_vtt_path)
-    )
+    output_json = Path(args.output_json).expanduser().resolve() if args.output_json else default_json_output_path(cleaned_vtt_path)
+    output_md = Path(args.output_md).expanduser().resolve() if args.output_md else default_md_output_path(cleaned_vtt_path)
 
-    glossary_paths = [] if args.no_default_glossaries else list(DEFAULT_GLOSSARY_FILES)
-    glossary_paths.extend(Path(path).expanduser().resolve() for path in args.glossary_file)
+    glossary_paths = build_glossary_paths(
+        args.glossary_file,
+        include_defaults=not args.no_default_glossaries,
+    )
 
     try:
         review = review_transcripts(
@@ -334,18 +296,15 @@ def main() -> int:
         output_csv = Path(args.output_csv).expanduser().resolve()
         append_manifest_row(
             output_csv,
-            build_manifest_row(
+            build_review_manifest_row(
                 raw_vtt_path=raw_vtt_path,
                 cleaned_vtt_path=cleaned_vtt_path,
                 review_json_path=output_json,
                 review_md_path=output_md,
                 review=review,
             ),
+            fieldnames=REVIEW_MANIFEST_FIELDNAMES,
         )
         print(f"Updated review CSV: {output_csv}", flush=True)
 
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
