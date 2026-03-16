@@ -170,6 +170,11 @@ def parse_args(
         action="store_true",
         help="Do not unload the Parakeet or Qwen models after the batch run finishes.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show verbose library logs and transcribe progress from NeMo and related dependencies.",
+    )
     return parser.parse_args(argv)
 
 
@@ -268,7 +273,7 @@ def main(
         include_defaults=not args.no_default_glossaries,
     )
     try:
-        model = load_model(args.model_name)
+        model = load_model(args.model_name, verbose=args.verbose)
         if not args.skip_qwen:
             print(f"Qwen cleanup model: {args.qwen_model}", flush=True)
             if glossary_paths:
@@ -286,7 +291,12 @@ def main(
                 print(f"Audio: {audio_path}", flush=True)
                 started = time.perf_counter()
                 if job.needs_raw_vtt or job.needs_vtt:
-                    entries = transcribe_audio_to_entries(model, audio_path, args.chunk_seconds)
+                    entries = transcribe_audio_to_entries(
+                        model,
+                        audio_path,
+                        args.chunk_seconds,
+                        verbose=args.verbose,
+                    )
                     write_vtt_entries(entries, job.raw_vtt_path)
                     if args.skip_qwen:
                         shutil.copyfile(job.raw_vtt_path, job.vtt_path)
