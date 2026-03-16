@@ -160,6 +160,12 @@ Keep models loaded after the run:
 uv run python -m anumodana --keep-models-loaded
 ```
 
+Show verbose library diagnostics during transcription:
+
+```powershell
+uv run python -m anumodana --verbose
+```
+
 ## What The Files Mean
 
 For each teaching, the pipeline writes:
