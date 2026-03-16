@@ -70,6 +70,15 @@ def render_vtt(
     return "\n".join(lines)
 
 
+def render_plain_text(
+    cues: list[Cue],
+    corrected_text: Mapping[int, str] | None = None,
+) -> str:
+    resolved_text = corrected_text or {}
+    lines = [clean_caption_text(resolved_text.get(cue.index, cue.text)) for cue in cues]
+    return "\n".join(line for line in lines if line).strip() + "\n"
+
+
 def build_vtt_entries(hypothesis: object, offset_seconds: float = 0.0) -> list[VttEntry]:
     timestamp_data = getattr(hypothesis, "timestamp", None)
     if not isinstance(timestamp_data, dict):
@@ -130,3 +139,10 @@ def write_vtt_entries(entries: list[VttEntry], vtt_path: Path) -> None:
 
     with vtt_path.open("w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(lines))
+
+
+def write_plain_text_from_vtt(vtt_path: Path, transcript_path: Path) -> None:
+    cues = parse_vtt(vtt_path)
+    if not cues:
+        raise ValueError(f"No VTT cues found in {vtt_path}")
+    transcript_path.write_text(render_plain_text(cues), encoding="utf-8", newline="\n")

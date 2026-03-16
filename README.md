@@ -7,11 +7,9 @@ Right now, it is primarily aimed at English-speaking communities. It works best 
 It takes a folder of video or audio files and produces:
 
 - a same-name mono 16 kHz `.mp3`
-- a raw Parakeet transcript: `.parakeet.raw.vtt`
-- a cleaned subtitle file: `.vtt`
-- a review file: `.review.json`
-- a human-readable review note: `.review.md`
-- a root-level summary file: `_anumodana_review_manifest.csv`
+- a human-readable transcript: `.txt`
+- revision artifacts under `Transcript Revision/`: `.parakeet.raw.vtt`, internal cleaned `.vtt`, `.review.json`, `.review.md`
+- a revision summary file: `_anumodana_review_manifest.csv`
 
 The current pipeline is:
 
@@ -78,14 +76,26 @@ FFmpeg should either be on your `PATH`, or installed under:
 By default, the script looks in:
 
 ```text
-~/Downloads/Trimmed
+~/Downloads/Ajahn Wade Recordings
 ```
 
 On Windows, that is usually something like:
 
 ```text
-C:\Users\<you>\Downloads\Trimmed
+C:\Users\<you>\Downloads\Ajahn Wade Recordings
 ```
+
+The batch pipeline now expects a collection layout like this:
+
+```text
+Root/
+  Collection Name/
+    Raw/
+    Trimmed/
+    Transcript Revision/
+```
+
+The collection name can be anything. The important part is the `Raw/`, `Trimmed/`, and `Transcript Revision/` subdirectory structure.
 
 ### 3. Run the pipeline
 
@@ -93,11 +103,13 @@ C:\Users\<you>\Downloads\Trimmed
 uv run python -m anumodana
 ```
 
-To run a different folder:
+To run a different parent folder:
 
 ```powershell
 uv run python -m anumodana --root "C:\path\to\teachings"
 ```
+
+You can also point directly at a single collection folder or a direct `Trimmed` folder if you want to process just one collection.
 
 The repo now has one CLI entry point:
 
@@ -214,16 +226,21 @@ For each teaching, the pipeline writes:
 
 - `session.mp3`
   A same-name mono 16 kHz MP3 audio copy for listening, sharing, or archiving.
+- `session.txt`
+  A human-readable transcript for sharing alongside the media.
+
+Under each collection's sibling `Transcript Revision/...` tree, the pipeline also writes:
+
 - `session.parakeet.raw.vtt`
   The direct ASR output from Parakeet before cleanup.
 - `session.vtt`
-  The cleaned subtitle file after the local Qwen pass.
+  The cleaned timing-aligned subtitle file used for review.
 - `session.review.json`
   Structured review data.
 - `session.review.md`
   A human-readable review note.
 
-At the root of the run, it also writes:
+At the root of that revision tree, it also writes:
 
 - `_anumodana_review_manifest.csv`
   A one-row-per-session summary of outputs and review status.
@@ -247,7 +264,7 @@ uv run python -m anumodana cleanup "C:\path\to\input.vtt" --keep-model-loaded
 
 ## Standalone Review
 
-If you already have both a raw transcript and a cleaned transcript:
+If you already have both a raw transcript and a cleaned timing-aligned transcript:
 
 ```powershell
 uv run python -m anumodana review "C:\path\to\session.parakeet.raw.vtt" "C:\path\to\session.vtt"
@@ -308,13 +325,13 @@ ffprobe -version
 Check the pipeline without modifying data:
 
 ```powershell
-uv run python -m anumodana --root "<teachings folder>" --dry-run
+uv run python -m anumodana --root "<parent folder or collection folder>" --dry-run
 ```
 
 If the user wants a real run:
 
 ```powershell
-uv run python -m anumodana --root "<teachings folder>"
+uv run python -m anumodana --root "<parent folder or collection folder>"
 ```
 
 ### What to tell the human
@@ -330,6 +347,6 @@ Surface these things clearly:
 
 If the run succeeds, direct the human to:
 
-- the cleaned `.vtt` files for normal use
+- the `.txt` files for normal reading and sharing
 - the `.review.md` files for human-readable concerns
 - `_anumodana_review_manifest.csv` for the overall summary

@@ -21,11 +21,13 @@ from anumodana.manifest import (
 from anumodana.ollama import DEFAULT_MODEL as DEFAULT_QWEN_MODEL
 from anumodana.ollama import DEFAULT_OLLAMA_URL, unload_ollama_model
 from anumodana.output_paths import (
+    DEFAULT_COLLECTION_NAME,
     DEFAULT_AUDIO_EXTENSION,
     audio_output_path,
     cleaned_vtt_output_path,
     raw_vtt_output_path,
     resolve_manifest_path,
+    transcript_output_path,
     review_json_output_path,
     review_md_output_path,
 )
@@ -42,15 +44,16 @@ from anumodana.review import (
     render_review_markdown,
     review_transcripts,
 )
-from anumodana.transcript import write_vtt_entries
+from anumodana.transcript import write_plain_text_from_vtt, write_vtt_entries
 
 
-DEFAULT_ROOT = Path.home() / "Downloads" / "Trimmed"
+DEFAULT_ROOT = Path.home() / "Downloads" / DEFAULT_COLLECTION_NAME
 DEFAULT_QWEN_BATCH_SIZE = 16
 DEFAULT_QWEN_TEMPERATURE = 0.1
 DEFAULT_QWEN_CONTEXT_WINDOW = 8192
 DEFAULT_REVIEW_TEMPERATURE = REVIEW_TEMPERATURE_DEFAULT
 DEFAULT_REVIEW_CONTEXT_WINDOW = REVIEW_CONTEXT_WINDOW_DEFAULT
+TRIMMED_DIR_NAME = "Trimmed"
 
 
 def parse_args(
@@ -65,7 +68,7 @@ def parse_args(
     parser.add_argument(
         "--root",
         default=str(DEFAULT_ROOT),
-        help="Root directory to scan. Defaults to the Trimmed downloads tree.",
+        help="Root directory to scan. This can be a parent directory containing collection folders, a single collection folder, or a direct Trimmed folder.",
     )
     parser.add_argument(
         "--model-name",
@@ -190,15 +193,17 @@ def build_manifest_rows(root: Path) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for source_path in iter_preferred_sources(root):
         audio_path = audio_output_path(source_path)
-        raw_vtt_path = raw_vtt_output_path(source_path)
-        cleaned_vtt_path = cleaned_vtt_output_path(source_path)
-        review_json_path = review_json_output_path(source_path)
-        review_md_path = review_md_output_path(source_path)
+        transcript_path = transcript_output_path(source_path)
+        raw_vtt_path = raw_vtt_output_path(root, source_path)
+        cleaned_vtt_path = cleaned_vtt_output_path(root, source_path)
+        review_json_path = review_json_output_path(root, source_path)
+        review_md_path = review_md_output_path(root, source_path)
         review = load_review_metadata(review_json_path)
         rows.append(
             build_pipeline_manifest_row(
                 source_path=source_path,
                 audio_path=audio_path,
+                transcript_path=transcript_path,
                 raw_vtt_path=raw_vtt_path,
                 cleaned_vtt_path=cleaned_vtt_path,
                 review_json_path=review_json_path,
@@ -209,6 +214,25 @@ def build_manifest_rows(root: Path) -> list[dict[str, str]]:
 
     rows.sort(key=lambda row: row["source_path"].lower())
     return rows
+
+
+def discover_trimmed_roots(root: Path) -> list[Path]:
+    if root.name.casefold() == TRIMMED_DIR_NAME.casefold():
+        return [root]
+
+    direct_trimmed = root / TRIMMED_DIR_NAME
+    if direct_trimmed.is_dir():
+        return [direct_trimmed]
+
+    trimmed_roots = sorted(
+        child / TRIMMED_DIR_NAME
+        for child in root.iterdir()
+        if child.is_dir() and (child / TRIMMED_DIR_NAME).is_dir()
+    )
+    if trimmed_roots:
+        return trimmed_roots
+
+    return [root]
 
 
 def main(
@@ -231,34 +255,57 @@ def main(
     if ffmpeg_bin:
         print(f"Using FFmpeg from: {ffmpeg_bin}", flush=True)
 
-    jobs, skipped = discover_jobs(root, overwrite=args.overwrite, run_review=run_review)
+    trimmed_roots = discover_trimmed_roots(root)
+    if args.manifest_path and len(trimmed_roots) > 1:
+        print("--manifest-path can only be used when --root resolves to a single Trimmed tree.", file=sys.stderr)
+        return 1
+
+    jobs_by_root: dict[Path, list[Job]] = {}
+    manifest_paths: dict[Path, Path] = {}
+    skipped_by_root: dict[Path, int] = {}
+    all_jobs: list[tuple[Path, Job]] = []
+
+    for trimmed_root in trimmed_roots:
+        jobs, skipped = discover_jobs(trimmed_root, overwrite=args.overwrite, run_review=run_review)
+        jobs_by_root[trimmed_root] = jobs
+        manifest_paths[trimmed_root] = resolve_manifest_path(trimmed_root, args.manifest_path)
+        skipped_by_root[trimmed_root] = skipped
+        for job in jobs:
+            all_jobs.append((trimmed_root, job))
+
+    all_jobs.sort(key=lambda item: str(item[1].source_path).lower())
     if args.limit > 0:
-        jobs = jobs[: args.limit]
-    manifest_path = resolve_manifest_path(root, args.manifest_path)
+        all_jobs = all_jobs[: args.limit]
 
     print(f"Root: {root}", flush=True)
-    print(f"Jobs queued: {len(jobs)}", flush=True)
-    print(f"Already complete: {skipped}", flush=True)
-    print(f"Manifest: {manifest_path}", flush=True)
+    print(f"Trimmed trees found: {len(trimmed_roots)}", flush=True)
+    for trimmed_root in trimmed_roots:
+        queued_count = sum(1 for job_root, _ in all_jobs if job_root == trimmed_root)
+        print(f"Collection Trimmed root: {trimmed_root}", flush=True)
+        print(f"  Jobs queued: {queued_count}", flush=True)
+        print(f"  Already complete: {skipped_by_root[trimmed_root]}", flush=True)
+        print(f"  Manifest: {manifest_paths[trimmed_root]}", flush=True)
 
-    if not jobs:
-        write_manifest_csv(
-            manifest_path,
-            build_manifest_rows(root),
-            fieldnames=PIPELINE_MANIFEST_FIELDNAMES,
-        )
+    if not all_jobs:
+        for trimmed_root in trimmed_roots:
+            write_manifest_csv(
+                manifest_paths[trimmed_root],
+                build_manifest_rows(trimmed_root),
+                fieldnames=PIPELINE_MANIFEST_FIELDNAMES,
+            )
         print("Nothing to do.", flush=True)
         return 0
 
     if args.dry_run:
-        for index, job in enumerate(jobs, start=1):
+        for index, (_, job) in enumerate(all_jobs, start=1):
             print(f"[{index}] {job.source_path}", flush=True)
             print(f"    audio: {job.audio_path} ({'build' if job.needs_audio else 'reuse'})", flush=True)
+            print(f"    transcript: {job.transcript_path} ({'build' if job.needs_transcript else 'reuse'})", flush=True)
             print(f"    raw_vtt: {job.raw_vtt_path} ({'build' if job.needs_raw_vtt else 'reuse'})", flush=True)
-            vtt_mode = "build" if job.needs_vtt else "reuse"
+            vtt_mode = "build" if job.needs_cleaned_vtt else "reuse"
             if not args.skip_qwen:
                 vtt_mode = f"{vtt_mode} -> qwen"
-            print(f"    vtt: {job.vtt_path} ({vtt_mode})", flush=True)
+            print(f"    cleaned_vtt: {job.cleaned_vtt_path} ({vtt_mode})", flush=True)
             review_mode = "skip"
             if run_review:
                 review_mode = "build" if job.needs_review else "reuse"
@@ -283,14 +330,17 @@ def main(
         if run_review:
             print(f"Review model: {args.review_model}", flush=True)
 
-        for index, job in enumerate(jobs, start=1):
+        for index, (_, job) in enumerate(all_jobs, start=1):
             print("", flush=True)
-            print(f"[{index}/{len(jobs)}] {job.source_path}", flush=True)
+            print(f"[{index}/{len(all_jobs)}] {job.source_path}", flush=True)
             try:
                 audio_path = prepare_audio(job)
                 print(f"Audio: {audio_path}", flush=True)
                 started = time.perf_counter()
-                if job.needs_raw_vtt or job.needs_vtt:
+                if job.needs_raw_vtt or job.needs_cleaned_vtt or job.needs_transcript:
+                    job.raw_vtt_path.parent.mkdir(parents=True, exist_ok=True)
+                    job.cleaned_vtt_path.parent.mkdir(parents=True, exist_ok=True)
+                    job.review_json_path.parent.mkdir(parents=True, exist_ok=True)
                     entries = transcribe_audio_to_entries(
                         model,
                         audio_path,
@@ -299,11 +349,11 @@ def main(
                     )
                     write_vtt_entries(entries, job.raw_vtt_path)
                     if args.skip_qwen:
-                        shutil.copyfile(job.raw_vtt_path, job.vtt_path)
+                        shutil.copyfile(job.raw_vtt_path, job.cleaned_vtt_path)
                     else:
                         correct_vtt_file(
                             job.raw_vtt_path,
-                            output_path=job.vtt_path,
+                            output_path=job.cleaned_vtt_path,
                             glossary_paths=glossary_paths,
                             model=args.qwen_model,
                             ollama_url=args.ollama_url,
@@ -312,12 +362,13 @@ def main(
                             context_window=args.qwen_context_window,
                             progress=True,
                         )
+                    write_plain_text_from_vtt(job.cleaned_vtt_path, job.transcript_path)
                 else:
-                    print("Reusing existing raw and cleaned transcripts.", flush=True)
+                    print("Reusing existing raw, cleaned, and shareable transcripts.", flush=True)
                 if run_review:
                     review = review_transcripts(
                         raw_vtt_path=job.raw_vtt_path,
-                        cleaned_vtt_path=job.vtt_path,
+                        cleaned_vtt_path=job.cleaned_vtt_path,
                         glossary_paths=glossary_paths,
                         model=args.review_model,
                         ollama_url=args.ollama_url,
@@ -333,14 +384,15 @@ def main(
                         render_review_markdown(
                             review,
                             raw_vtt_path=job.raw_vtt_path,
-                            cleaned_vtt_path=job.vtt_path,
+                            cleaned_vtt_path=job.cleaned_vtt_path,
                         ),
                         encoding="utf-8",
                         newline="\n",
                     )
                 elapsed = time.perf_counter() - started
                 print(f"Wrote raw VTT: {job.raw_vtt_path}", flush=True)
-                print(f"Wrote: {job.vtt_path}", flush=True)
+                print(f"Wrote cleaned VTT: {job.cleaned_vtt_path}", flush=True)
+                print(f"Wrote transcript: {job.transcript_path}", flush=True)
                 if run_review:
                     print(f"Wrote review JSON: {job.review_json_path}", flush=True)
                     print(f"Wrote review markdown: {job.review_md_path}", flush=True)
@@ -352,11 +404,12 @@ def main(
                 failures += 1
                 print(f"ERROR: {exc}", flush=True)
     finally:
-        write_manifest_csv(
-            manifest_path,
-            build_manifest_rows(root),
-            fieldnames=PIPELINE_MANIFEST_FIELDNAMES,
-        )
+        for trimmed_root in trimmed_roots:
+            write_manifest_csv(
+                manifest_paths[trimmed_root],
+                build_manifest_rows(trimmed_root),
+                fieldnames=PIPELINE_MANIFEST_FIELDNAMES,
+            )
         if not args.keep_models_loaded:
             release_parakeet_model(model)
             models_to_unload: list[str] = []
@@ -368,7 +421,8 @@ def main(
                 unload_ollama_model(model_name, args.ollama_url)
 
     print("", flush=True)
-    print(f"Completed: {len(jobs) - failures}", flush=True)
+    print(f"Completed: {len(all_jobs) - failures}", flush=True)
     print(f"Failed: {failures}", flush=True)
-    print(f"Updated manifest: {manifest_path}", flush=True)
+    for trimmed_root in trimmed_roots:
+        print(f"Updated manifest: {manifest_paths[trimmed_root]}", flush=True)
     return 1 if failures else 0

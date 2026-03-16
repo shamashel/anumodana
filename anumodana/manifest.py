@@ -9,6 +9,7 @@ from pathlib import Path
 PIPELINE_MANIFEST_FIELDNAMES = [
     "source_path",
     "audio_path",
+    "transcript_path",
     "raw_vtt_path",
     "cleaned_vtt_path",
     "review_json_path",
@@ -67,6 +68,7 @@ def build_pipeline_manifest_row(
     *,
     source_path: Path,
     audio_path: Path,
+    transcript_path: Path,
     raw_vtt_path: Path,
     cleaned_vtt_path: Path,
     review_json_path: Path,
@@ -78,6 +80,7 @@ def build_pipeline_manifest_row(
     return {
         "source_path": str(source_path),
         "audio_path": str(audio_path) if audio_path.exists() else "",
+        "transcript_path": str(transcript_path) if transcript_path.exists() else "",
         "raw_vtt_path": str(raw_vtt_path) if raw_vtt_path.exists() else "",
         "cleaned_vtt_path": str(cleaned_vtt_path) if cleaned_vtt_path.exists() else "",
         "review_json_path": str(review_json_path) if review_json_path.exists() else "",
