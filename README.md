@@ -40,7 +40,7 @@ If you are not technical, the easiest path is usually:
 
 1. Install the prerequisites below once.
 2. Open this project in your AI assistant.
-3. Ask it to verify setup, then run `batch_parakeet_tree.py` on your teachings folder.
+3. Ask it to verify setup, then run `python -m anumodana` on your teachings folder.
 4. Ask it to summarize anything flagged for human review in `_anumodana_review_manifest.csv`.
 
 ## Quick Start
@@ -90,13 +90,26 @@ C:\Users\<you>\Downloads\Trimmed
 ### 3. Run the pipeline
 
 ```powershell
-uv run python batch_parakeet_tree.py
+uv run python -m anumodana
 ```
 
 To run a different folder:
 
 ```powershell
-uv run python batch_parakeet_tree.py --root "C:\path\to\teachings"
+uv run python -m anumodana --root "C:\path\to\teachings"
+```
+
+The repo now has one CLI entry point:
+
+```powershell
+uv run python -m anumodana --help
+```
+
+The full pipeline is the default behavior. Standalone cleanup and review live under:
+
+```powershell
+uv run python -m anumodana cleanup --help
+uv run python -m anumodana review --help
 ```
 
 ## If You Are Using An AI Helper
@@ -114,37 +127,37 @@ That is often the smoothest path for non-technical users.
 Dry run without writing files:
 
 ```powershell
-uv run python batch_parakeet_tree.py --dry-run
+uv run python -m anumodana --dry-run
 ```
 
 Only process the first 5 files:
 
 ```powershell
-uv run python batch_parakeet_tree.py --limit 5
+uv run python -m anumodana --limit 5
 ```
 
 Overwrite existing outputs:
 
 ```powershell
-uv run python batch_parakeet_tree.py --overwrite
+uv run python -m anumodana --overwrite
 ```
 
 Skip cleanup:
 
 ```powershell
-uv run python batch_parakeet_tree.py --skip-qwen
+uv run python -m anumodana --skip-qwen
 ```
 
 Skip review:
 
 ```powershell
-uv run python batch_parakeet_tree.py --skip-review
+uv run python -m anumodana --skip-review
 ```
 
 Keep models loaded after the run:
 
 ```powershell
-uv run python batch_parakeet_tree.py --keep-models-loaded
+uv run python -m anumodana --keep-models-loaded
 ```
 
 ## What The Files Mean
@@ -172,16 +185,16 @@ At the root of the run, it also writes:
 If you already have a raw `.vtt`, you can run just the cleanup step:
 
 ```powershell
-uv run python llm_correct_vtt.py "C:\path\to\input.vtt"
+uv run python -m anumodana cleanup "C:\path\to\input.vtt"
 ```
 
 Useful options:
 
 ```powershell
-uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --batch-size 0
-uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --glossary-file "C:\path\to\my_lineage_terms.txt"
-uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --no-default-glossaries
-uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --keep-model-loaded
+uv run python -m anumodana cleanup "C:\path\to\input.vtt" --batch-size 0
+uv run python -m anumodana cleanup "C:\path\to\input.vtt" --glossary-file "C:\path\to\my_lineage_terms.txt"
+uv run python -m anumodana cleanup "C:\path\to\input.vtt" --no-default-glossaries
+uv run python -m anumodana cleanup "C:\path\to\input.vtt" --keep-model-loaded
 ```
 
 ## Standalone Review
@@ -189,7 +202,7 @@ uv run python llm_correct_vtt.py "C:\path\to\input.vtt" --keep-model-loaded
 If you already have both a raw transcript and a cleaned transcript:
 
 ```powershell
-uv run python review_vtt.py "C:\path\to\session.parakeet.raw.vtt" "C:\path\to\session.vtt"
+uv run python -m anumodana review "C:\path\to\session.parakeet.raw.vtt" "C:\path\to\session.vtt"
 ```
 
 The review output includes:
@@ -247,13 +260,13 @@ ffprobe -version
 Check the pipeline without modifying data:
 
 ```powershell
-uv run python batch_parakeet_tree.py --root "<teachings folder>" --dry-run
+uv run python -m anumodana --root "<teachings folder>" --dry-run
 ```
 
 If the user wants a real run:
 
 ```powershell
-uv run python batch_parakeet_tree.py --root "<teachings folder>"
+uv run python -m anumodana --root "<teachings folder>"
 ```
 
 ### What to tell the human
