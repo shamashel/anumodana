@@ -9,6 +9,8 @@ import time
 from collections.abc import Sequence
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from anumodana.correction import correct_vtt_file
 from anumodana.ffmpeg import ensure_ffmpeg_on_path, extract_audio_copy
 from anumodana.glossary import build_glossary_paths
@@ -117,9 +119,9 @@ def parse_args(
         help="Ollama generate endpoint for the cleanup pass.",
     )
     parser.add_argument(
-        "--ollama-cloud",
+        "--local",
         action="store_true",
-        help="Use Ollama Cloud API. Requires OLLAMA_API_KEY environment variable.",
+        help="Run fixer and review models locally via Ollama instead of using Ollama Cloud.",
     )
     parser.add_argument(
         "--fixer-batch-size",
@@ -261,38 +263,39 @@ def main(
     *,
     prog: str | None = None,
 ) -> int:
-    env_path = Path(".env")
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, val = line.split("=", 1)
-                key = key.strip()
-                val = val.strip().strip("'\"")
-                if key not in os.environ:
-                    os.environ[key] = val
+    load_dotenv()
 
     args = parse_args(argv, prog=prog)
 
-    if args.ollama_cloud:
+    use_cloud = not args.local
+    if use_cloud and os.environ.get("OLLAMA_API_KEY"):
         args.ollama_url = "https://ollama.com/api/generate"
-        if not os.environ.get("OLLAMA_API_KEY"):
-            print("ERROR: --ollama-cloud requires the OLLAMA_API_KEY environment variable.", file=sys.stderr)
-            print("Please see https://docs.ollama.com/cloud#cloud-api-access to generate a key.", file=sys.stderr)
-            return 1
 
         if args.fixer_batch_size == DEFAULT_FIXER_BATCH_SIZE:
             args.fixer_batch_size = 0
-            
+
         if args.max_batch_characters == DEFAULT_MAX_BATCH_CHARACTERS:
             args.max_batch_characters *= 5
         if args.max_prompt_tokens == DEFAULT_MAX_PROMPT_TOKENS:
             args.max_prompt_tokens *= 5
 
+        print("Using Ollama Cloud for fixer and review models.", flush=True)
+    elif use_cloud and not os.environ.get("OLLAMA_API_KEY"):
+        print("", flush=True)
+        print("No OLLAMA_API_KEY found. Falling back to local Ollama.", flush=True)
+        print("To use Ollama Cloud (free, no GPU needed for fixer/review):", flush=True)
+        print("  1. Sign up at https://ollama.com", flush=True)
+        print("  2. Get an API key at https://docs.ollama.com/cloud#cloud-api-access", flush=True)
+        print("  3. Save it in your .env file: OLLAMA_API_KEY=\"your_key\"", flush=True)
+        print("", flush=True)
+        use_cloud = False
+    else:
+        print("Using local Ollama (--local flag).", flush=True)
+
     if args.fixer_model is None:
-        args.fixer_model = "qwen3.5" if args.ollama_cloud else DEFAULT_FIXER_MODEL
+        args.fixer_model = "qwen3.5" if use_cloud else DEFAULT_FIXER_MODEL
     if args.review_model is None:
-        args.review_model = "qwen3.5" if args.ollama_cloud else DEFAULT_FIXER_MODEL
+        args.review_model = "qwen3.5" if use_cloud else DEFAULT_FIXER_MODEL
 
     root = Path(args.root).expanduser().resolve()
     if not root.exists():

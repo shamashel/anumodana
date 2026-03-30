@@ -1,45 +1,48 @@
 # Anumodana
 
-Anumodana is a local transcription pipeline for Theravada Buddhist talks.
+Anumodana is a transcription pipeline for Theravada Buddhist talks.
 
-Right now, it is primarily aimed at English-speaking communities. It works best when the main body of the talk is in English, even if it includes some Pali or Buddhist terminology.
+It takes a folder of audio or video recordings and produces clean, shareable transcripts — with Buddhist terminology, Pali chants, and lineage-specific names handled automatically.
 
-It takes a folder of video or audio files and produces:
+Right now, it is primarily aimed at English-speaking communities. It works best when the main body of the talk is in English, even if it includes some Pali or Buddhist terms.
+
+For each recording, the pipeline writes:
 
 - a same-name mono 16 kHz `.mp3`
 - a human-readable transcript: `.txt`
-- revision artifacts under `Transcript Revision/`: `.parakeet.raw.vtt`, internal cleaned `.vtt`, `.review.json`, `.review.md`
+- revision artifacts under `Transcript Revision/`: `.parakeet.raw.vtt`, cleaned `.vtt`, `.review.json`, `.review.md`
 - a revision summary file: `_anumodana_review_manifest.csv`
 
-The current pipeline is:
+The pipeline:
 
-1. media file
-2. `.mp3`
-3. `nvidia/parakeet-tdt-0.6b-v3`
-4. local AI fixer pass (default: `qwen3.5:4b`)
-5. local review pass
+1. media file → `.mp3`
+2. `nvidia/parakeet-tdt-0.6b-v3` (local transcription — uses your GPU if you have one, otherwise runs on CPU)
+3. AI fixer pass (Ollama Cloud by default, or local with `--local`)
+4. AI review pass (Ollama Cloud by default, or local with `--local`)
+
+## Who This Is For
+
+This project is meant to be usable by anyone who wants to help transcribe Dhamma talks:
+
+- monastics or laypeople with little or no technical background, working through an AI assistant
+- people who are comfortable running commands in a terminal
+- technically inclined users (monks or laypeople from IT, programming, or similar backgrounds)
+
+**No dedicated GPU is required.** The transcription model is small enough to run on a normal computer's CPU, and the AI cleanup and review steps run in the cloud by default.
+
+If you are not technical, the easiest path is usually:
+
+1. Install the prerequisites below once (or ask someone to help you).
+2. Open this project in your AI assistant (Codex, Claude Code/Coworker, or similar).
+3. Ask it to verify setup, then run `python -m anumodana` on your teachings folder.
+4. Ask it to summarize anything flagged for human review in `_anumodana_review_manifest.csv`.
 
 ## Current Limitations
 
 - This workflow currently works best for English talks.
-- `nvidia/parakeet-tdt-0.6b-v3` has been a strong local option for English transcription here, but it is not a good fit for Thai-heavy content in this project as currently configured.
+- `nvidia/parakeet-tdt-0.6b-v3` has been a strong option for English transcription, but it is not a good fit for Thai-heavy content as currently configured.
 - Pali chants and lineage-specific terminology can still need cleanup or human review, especially at the start of talks.
 - If a talk contains long Thai sections, a different ASR model or a future fine-tuned model may be a better choice.
-
-## Who This Is For
-
-This project is meant to be usable by:
-
-- monastics or laypeople who want help transcribing teachings locally
-- technically inclined users who are comfortable running commands
-- people working with an AI coding assistant such as Codex, Claude Code/Coworker, or similar tools
-
-If you are not technical, the easiest path is usually:
-
-1. Install the prerequisites below once.
-2. Open this project in your AI assistant.
-3. Ask it to verify setup, then run `python -m anumodana` on your teachings folder.
-4. Ask it to summarize anything flagged for human review in `_anumodana_review_manifest.csv`.
 
 ## Quick Start
 
@@ -47,22 +50,15 @@ If you are not technical, the easiest path is usually:
 
 You need:
 
-- `uv`
-- Python 3.12
-- FFmpeg
-- [Ollama](https://ollama.com/)
-- a local fixer model (default: `qwen3.5:4b`)
+- [uv](https://docs.astral.sh/uv/) (Python project manager)
+- Python 3.12 (uv can install this for you)
+- [FFmpeg](https://ffmpeg.org/) (audio processing)
+- [Ollama](https://ollama.com/) (installed locally — needed even for cloud mode, as the local `ollama` command is used for model management)
 
-If you already have `uv`, the repo can set up Python and dependencies with:
+Once you have `uv`, run this in the project folder to install Python and all dependencies:
 
 ```powershell
 uv sync
-```
-
-Then pull the local cleanup model:
-
-```powershell
-ollama pull qwen3.5:4b
 ```
 
 FFmpeg should either be on your `PATH`, or installed under:
@@ -71,26 +67,36 @@ FFmpeg should either be on your `PATH`, or installed under:
 %LOCALAPPDATA%\Programs\ffmpeg
 ```
 
-### 1.5. Environment and Model Setup (Local vs. Cloud)
+### 2. Choose how to run the AI cleanup and review
 
-You can choose to run the fixer and review models either entirely locally or on the cloud.
+#### Option A: Cloud (recommended — easiest, no GPU needed)
 
-**Option A: Local Execution (Requires sufficient GPU VRAM)**
-This is the default. It requires zero setup beyond downloading the model to your local machine:
-```powershell
-ollama pull qwen3.5:4b
-```
+This is the default. The transcription step runs locally on your machine (no internet needed for that part), but the AI cleanup and review steps use Ollama Cloud's free tier.
 
-**Option B: Cloud Execution (Free, slower, zero local GPU usage)**
-If you'd like to offload inference to Ollama Cloud:
-1. Copy the `.env.example` file to `.env` in the root of the project.
-2. Sign up and grab an API key at [Ollama Cloud API](https://docs.ollama.com/cloud#cloud-api-access).
-3. Paste the key in your `.env` like: `OLLAMA_API_KEY="your_api_key_here"`.
-4. Run the pipeline with the `--ollama-cloud` flag.
+1. Sign up at [ollama.com](https://ollama.com).
+2. Get an API key at [Ollama Cloud API](https://docs.ollama.com/cloud#cloud-api-access).
+3. Copy the `.env.example` file to `.env` in the project root.
+4. Paste your key in `.env`:
+   ```
+   OLLAMA_API_KEY="your_api_key_here"
+   ```
 
-Because this project uses `uv`, your `.env` file is automatically loaded into the environment at runtime!
+That's it. The pipeline will automatically use cloud models when it sees this key.
 
-### 2. Put your teachings in one folder tree
+#### Option B: Fully local (requires a GPU with enough VRAM for the cleanup model)
+
+If you prefer to run everything on your own machine:
+
+1. Pull the local cleanup model:
+   ```powershell
+   ollama pull qwen3.5:4b
+   ```
+2. Run the pipeline with the `--local` flag:
+   ```powershell
+   uv run python -m anumodana --local
+   ```
+
+### 3. Organize your teachings
 
 By default, the script looks in:
 
@@ -104,7 +110,7 @@ On Windows, that is usually something like:
 C:\Users\<you>\Downloads\Ajahn Wade Recordings
 ```
 
-The batch pipeline now expects a collection layout like this:
+The batch pipeline expects a collection layout like this:
 
 ```text
 Root/
@@ -116,7 +122,7 @@ Root/
 
 The collection name can be anything. The important part is the `Raw/`, `Trimmed/`, and `Transcript Revision/` subdirectory structure.
 
-### 3. Run the pipeline
+### 4. Run the pipeline
 
 ```powershell
 uv run python -m anumodana
@@ -128,8 +134,7 @@ To run a different parent folder:
 uv run python -m anumodana --root "C:\path\to\teachings"
 ```
 
-You can also point directly at a single collection folder or a direct `Trimmed` folder if you want to process just one collection.
-```
+You can also point directly at a single collection folder or a `Trimmed` folder to process just one collection.
 
 Keep models loaded after the run:
 
@@ -143,7 +148,7 @@ Show verbose library diagnostics during transcription:
 uv run python -m anumodana --verbose
 ```
 
-### Choosing chunk size
+### Choosing chunk size (advanced)
 
 The Parakeet transcription step uses `--chunk-seconds` to decide how much audio to send through the model at once.
 
@@ -151,13 +156,12 @@ The default is `120`, and that is the recommended starting point.
 
 Practical rule of thumb:
 
-- `60` seconds is a safer choice if your GPU is also driving your desktop and you want to minimize lag or VRAM spikes.
-- `120` seconds is the recommended default and worked well in testing here.
-- `180` seconds can be reasonable on high-VRAM GPUs, but it is a more aggressive setting.
-- `240` seconds should be treated as an upper-end setting to test carefully, not a new default.
-- Avoid jumping straight to very large chunks like `600` seconds unless you have measured that it behaves well on your specific machine.
+- `60` seconds is a safer choice if you want to minimize RAM or VRAM usage.
+- `120` seconds is the recommended default.
+- `180`+ seconds can be reasonable on high-VRAM GPUs, but test carefully.
 
-Rough GPU memory observations from one Windows machine with an RTX 4090:
+<details>
+<summary>GPU VRAM observations (RTX 4090)</summary>
 
 - `30` seconds: about `+200 MiB` during transcription
 - `60` seconds: about `+500 MiB`
@@ -165,13 +169,10 @@ Rough GPU memory observations from one Windows machine with an RTX 4090:
 - `180` seconds: about `+1.7 GiB`
 - `240` seconds: about `+2.9 GiB`
 
-Treat those numbers as a rough heuristic, not a promise. PyTorch and CUDA caching can make the baseline move around between runs, and your results can differ based on driver mode, background GPU usage, and whether the GPU is also running the desktop.
+These numbers are a rough heuristic. PyTorch and CUDA caching can make the baseline move around between runs, and results differ based on driver mode, background GPU usage, and whether the GPU is also running the desktop.
 
-Why this matters:
-
-- larger chunks reduce chunk boundaries, but they also raise GPU memory pressure
-- on a display-attached GPU, high VRAM pressure can make the whole computer feel sluggish even if the run does not crash
-- if you notice lag, go smaller first rather than larger
+On a display-attached GPU, high VRAM pressure can make the whole computer feel sluggish even if the run does not crash. If you notice lag, go smaller.
+</details>
 
 If you are unsure, stay with the default:
 
@@ -260,13 +261,25 @@ Use this section as the fast path.
 ### Setup checklist
 
 1. Run `uv sync` in the repo root.
-2. Verify CUDA is available:
+
+2. Check if a GPU is available (optional — not required):
 
 ```powershell
-uv run python -c "import torch; print(torch.__version__); print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'cpu')"
+uv run python -c "import torch; print(torch.__version__); print('CUDA:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'No GPU — will use CPU (this is fine)')"
 ```
 
-3. Verify Ollama is installed and the cleanup model exists:
+3. Check if Ollama Cloud is configured (preferred):
+
+```powershell
+uv run python -c "import os; key = os.environ.get('OLLAMA_API_KEY', ''); print('Cloud API key:', 'configured' if key and key != 'your_api_key_here' else 'NOT SET — see .env.example')"
+```
+
+If the key is not set, guide the user to:
+- Copy `.env.example` to `.env`
+- Get a free API key at https://docs.ollama.com/cloud#cloud-api-access
+- Paste it into `.env`
+
+4. If the user wants to run fully local instead (`--local`), verify Ollama is installed and the cleanup model exists:
 
 ```powershell
 ollama list
@@ -278,7 +291,7 @@ Look for `qwen3.5:4b`. If missing:
 ollama pull qwen3.5:4b
 ```
 
-4. Verify FFmpeg is available:
+5. Verify FFmpeg is available:
 
 ```powershell
 ffmpeg -version
@@ -299,16 +312,23 @@ If the user wants a real run:
 uv run python -m anumodana --root "<parent folder or collection folder>"
 ```
 
+For fully local runs:
+
+```powershell
+uv run python -m anumodana --root "<parent folder or collection folder>" --local
+```
+
 ### What to tell the human
 
 Surface these things clearly:
 
-- whether CUDA is actually being used or if the run fell back to CPU
+- whether CUDA is being used for transcription, or if it fell back to CPU (both work — GPU is just faster)
+- whether the pipeline is using Ollama Cloud or local Ollama for fixer/review
 - whether the required models were downloaded successfully
 - which file is currently being processed
 - where `_anumodana_review_manifest.csv` was written
 - whether any sessions were flagged with `needs_human_review = true`
-- any failures involving missing FFmpeg, missing Ollama, missing model files, or CUDA not being available
+- any failures involving missing FFmpeg, missing Ollama, missing model files, or missing API keys
 
 If the run succeeds, direct the human to:
 

@@ -20,6 +20,8 @@ commands:
 
 notes:
   running without a subcommand defaults to the full batch pipeline
+  fixer and review use Ollama Cloud by default (set OLLAMA_API_KEY in .env)
+  use --local to run fixer and review models on your own machine instead
   use `python -m anumodana batch --help` for pipeline options
 """
 
