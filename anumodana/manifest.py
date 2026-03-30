@@ -53,10 +53,10 @@ def build_review_manifest_row(
     review_notes = review.get("review_notes", [])
     concerns = review.get("concerns", [])
     return {
-        "raw_vtt_path": str(raw_vtt_path),
-        "cleaned_vtt_path": str(cleaned_vtt_path),
-        "review_json_path": str(review_json_path),
-        "review_md_path": str(review_md_path),
+        "raw_vtt_path": raw_vtt_path.parent.name,
+        "cleaned_vtt_path": cleaned_vtt_path.parent.name,
+        "review_json_path": review_json_path.parent.name,
+        "review_md_path": review_md_path.parent.name,
         "needs_human_review": "true" if review.get("needs_human_review") else "false",
         "review_note_count": str(len(review_notes) if isinstance(review_notes, list) else 0),
         "concern_count": str(len(concerns) if isinstance(concerns, list) else 0),
@@ -78,13 +78,13 @@ def build_pipeline_manifest_row(
     review_notes = review.get("review_notes")
     concerns = review.get("concerns")
     return {
-        "source_path": str(source_path),
-        "audio_path": str(audio_path) if audio_path.exists() else "",
-        "transcript_path": str(transcript_path) if transcript_path.exists() else "",
-        "raw_vtt_path": str(raw_vtt_path) if raw_vtt_path.exists() else "",
-        "cleaned_vtt_path": str(cleaned_vtt_path) if cleaned_vtt_path.exists() else "",
-        "review_json_path": str(review_json_path) if review_json_path.exists() else "",
-        "review_md_path": str(review_md_path) if review_md_path.exists() else "",
+        "source_path": source_path.parent.name,
+        "audio_path": audio_path.parent.name if audio_path.exists() else "",
+        "transcript_path": transcript_path.parent.name if transcript_path.exists() else "",
+        "raw_vtt_path": raw_vtt_path.parent.name if raw_vtt_path.exists() else "",
+        "cleaned_vtt_path": cleaned_vtt_path.parent.name if cleaned_vtt_path.exists() else "",
+        "review_json_path": review_json_path.parent.name if review_json_path.exists() else "",
+        "review_md_path": review_md_path.parent.name if review_md_path.exists() else "",
         "needs_human_review": (
             "true" if isinstance(review.get("needs_human_review"), bool) and review.get("needs_human_review") else "false"
         )

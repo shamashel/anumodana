@@ -5,3 +5,6 @@ __pycache__/
 *.vtt
 *.json
 *.tmp
+
+# Configuration
+.env

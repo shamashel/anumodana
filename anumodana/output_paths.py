@@ -20,7 +20,7 @@ def transcript_output_path(source_path: Path) -> Path:
 
 
 def correction_output_path(input_path: Path) -> Path:
-    return input_path.with_name(f"{input_path.stem}.qwen.vtt")
+    return input_path.with_name(f"{input_path.stem}.fixer.vtt")
 
 
 def revision_root_path(root: Path) -> Path:

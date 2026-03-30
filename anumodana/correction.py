@@ -89,7 +89,7 @@ def parse_args(
         "--output-path",
         type=str,
         default="",
-        help="Where to write the corrected VTT. Defaults to same name with .qwen.vtt",
+        help="Where to write the corrected VTT. Defaults to same name with .fixer.vtt",
     )
     parser.add_argument("--model", type=str, default=DEFAULT_MODEL, help="Ollama model name.")
     parser.add_argument("--ollama-url", type=str, default=DEFAULT_OLLAMA_URL, help="Ollama generate endpoint.")
@@ -253,6 +253,8 @@ def correct_cues(
     temperature: float = 0.1,
     context_window: int = 8192,
     progress: bool = False,
+    max_batch_characters: int = DEFAULT_MAX_BATCH_CHARACTERS,
+    max_prompt_tokens: int = DEFAULT_MAX_PROMPT_TOKENS,
 ) -> dict[int, str]:
     if not cues:
         raise ValueError("No VTT cues were provided for correction.")
@@ -262,8 +264,6 @@ def correct_cues(
         loaded_glossary_lines = load_glossary_lines(glossary_paths or [])
 
     corrected: dict[int, str] = {}
-    max_batch_characters = DEFAULT_MAX_BATCH_CHARACTERS
-    max_prompt_tokens = DEFAULT_MAX_PROMPT_TOKENS
     batches = build_cue_batches(
         cues,
         batch_size,
@@ -322,6 +322,8 @@ def correct_vtt_file(
     temperature: float = 0.1,
     context_window: int = 8192,
     progress: bool = False,
+    max_batch_characters: int = DEFAULT_MAX_BATCH_CHARACTERS,
+    max_prompt_tokens: int = DEFAULT_MAX_PROMPT_TOKENS,
 ) -> Path:
     cues = parse_vtt(input_path)
     if not cues:
@@ -339,6 +341,8 @@ def correct_vtt_file(
         temperature=temperature,
         context_window=context_window,
         progress=progress,
+        max_batch_characters=max_batch_characters,
+        max_prompt_tokens=max_prompt_tokens,
     )
     resolved_output_path.write_text(render_vtt(cues, corrected), encoding="utf-8", newline="\n")
     return resolved_output_path
@@ -371,6 +375,8 @@ def main(
             temperature=args.temperature,
             context_window=args.context_window,
             progress=True,
+            max_batch_characters=DEFAULT_MAX_BATCH_CHARACTERS,
+            max_prompt_tokens=DEFAULT_MAX_PROMPT_TOKENS,
         )
     except ValueError as exc:
         print(str(exc), file=sys.stderr)

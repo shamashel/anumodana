@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 import time
@@ -18,7 +19,7 @@ from anumodana.manifest import (
     load_review_metadata,
     write_manifest_csv,
 )
-from anumodana.ollama import DEFAULT_MODEL as DEFAULT_QWEN_MODEL
+from anumodana.ollama import DEFAULT_MODEL as DEFAULT_FIXER_MODEL
 from anumodana.ollama import DEFAULT_OLLAMA_URL, unload_ollama_model
 from anumodana.output_paths import (
     DEFAULT_COLLECTION_NAME,
@@ -48,9 +49,12 @@ from anumodana.transcript import write_plain_text_from_vtt, write_vtt_entries
 
 
 DEFAULT_ROOT = Path.home() / "Downloads" / DEFAULT_COLLECTION_NAME
-DEFAULT_QWEN_BATCH_SIZE = 16
-DEFAULT_QWEN_TEMPERATURE = 0.1
-DEFAULT_QWEN_CONTEXT_WINDOW = 8192
+DEFAULT_FIXER_BATCH_SIZE = 16
+DEFAULT_FIXER_TEMPERATURE = 0.1
+DEFAULT_FIXER_CONTEXT_WINDOW = 8192
+DEFAULT_MAX_BATCH_CHARACTERS = 3200
+DEFAULT_MAX_PROMPT_TOKENS = 2600
+
 DEFAULT_REVIEW_TEMPERATURE = REVIEW_TEMPERATURE_DEFAULT
 DEFAULT_REVIEW_CONTEXT_WINDOW = REVIEW_CONTEXT_WINDOW_DEFAULT
 TRIMMED_DIR_NAME = "Trimmed"
@@ -63,7 +67,7 @@ def parse_args(
 ) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog=prog,
-        description="Walk a tree, create same-name MP3 audio copies, transcribe with Parakeet v3, and clean VTTs with Qwen."
+        description="Walk a tree, create same-name MP3 audio copies, transcribe with Parakeet v3, and clean VTTs with your configured AI fixer."
     )
     parser.add_argument(
         "--root",
@@ -98,13 +102,13 @@ def parse_args(
         help="List what would run without extracting or transcribing.",
     )
     parser.add_argument(
-        "--skip-qwen",
+        "--skip-fixer",
         action="store_true",
-        help="Skip the local Qwen correction pass and keep raw Parakeet VTT output.",
+        help="Skip the local AI fixer correction pass and keep raw Parakeet VTT output.",
     )
     parser.add_argument(
-        "--qwen-model",
-        default=DEFAULT_QWEN_MODEL,
+        "--fixer-model",
+        default=None,
         help="Ollama model name for the cleanup pass.",
     )
     parser.add_argument(
@@ -113,33 +117,50 @@ def parse_args(
         help="Ollama generate endpoint for the cleanup pass.",
     )
     parser.add_argument(
-        "--qwen-batch-size",
+        "--ollama-cloud",
+        action="store_true",
+        help="Use Ollama Cloud API. Requires OLLAMA_API_KEY environment variable.",
+    )
+    parser.add_argument(
+        "--fixer-batch-size",
         type=int,
-        default=DEFAULT_QWEN_BATCH_SIZE,
+        default=DEFAULT_FIXER_BATCH_SIZE,
         help="Number of subtitle cues per Ollama cleanup request. 0 means send the whole transcript in one request.",
     )
     parser.add_argument(
-        "--qwen-temperature",
+        "--fixer-temperature",
         type=float,
-        default=DEFAULT_QWEN_TEMPERATURE,
+        default=DEFAULT_FIXER_TEMPERATURE,
         help="Sampling temperature for the Ollama cleanup pass.",
     )
     parser.add_argument(
-        "--qwen-context-window",
+        "--fixer-context-window",
         type=int,
-        default=DEFAULT_QWEN_CONTEXT_WINDOW,
+        default=DEFAULT_FIXER_CONTEXT_WINDOW,
         help="num_ctx to send to Ollama for the cleanup pass.",
+    )
+    parser.add_argument(
+        "--max-batch-characters",
+        type=int,
+        default=DEFAULT_MAX_BATCH_CHARACTERS,
+        help="Maximum characters to permit into a single Ollama payload chunk.",
+    )
+    parser.add_argument(
+        "--max-prompt-tokens",
+        type=int,
+        default=DEFAULT_MAX_PROMPT_TOKENS,
+        help="Maximum loosely estimated tokens to permit into a single Ollama payload chunk.",
     )
     parser.add_argument(
         "--glossary-file",
         action="append",
         default=[],
-        help="Additional glossary file to append for the Qwen cleanup pass.",
+        help="Additional glossary file to append for the cleanup pass.",
     )
     parser.add_argument(
         "--no-default-glossaries",
         action="store_true",
-        help="Do not load the built-in glossary stack for the Qwen cleanup pass.",
+        help="Do not load the built-in glossary stack for the cleanup pass.",
     )
     parser.add_argument(
         "--skip-review",
@@ -148,7 +169,7 @@ def parse_args(
     )
     parser.add_argument(
         "--review-model",
-        default=DEFAULT_QWEN_MODEL,
+        default=None,
         help="Ollama model name for the structured review pass.",
     )
     parser.add_argument(
@@ -171,7 +192,7 @@ def parse_args(
     parser.add_argument(
         "--keep-models-loaded",
         action="store_true",
-        help="Do not unload the Parakeet or Qwen models after the batch run finishes.",
+        help="Do not unload the Parakeet or fixer models after the batch run finishes.",
     )
     parser.add_argument(
         "--verbose",
@@ -240,15 +261,47 @@ def main(
     *,
     prog: str | None = None,
 ) -> int:
+    env_path = Path(".env")
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, val = line.split("=", 1)
+                key = key.strip()
+                val = val.strip().strip("'\"")
+                if key not in os.environ:
+                    os.environ[key] = val
+
     args = parse_args(argv, prog=prog)
+
+    if args.ollama_cloud:
+        args.ollama_url = "https://ollama.com/api/generate"
+        if not os.environ.get("OLLAMA_API_KEY"):
+            print("ERROR: --ollama-cloud requires the OLLAMA_API_KEY environment variable.", file=sys.stderr)
+            print("Please see https://docs.ollama.com/cloud#cloud-api-access to generate a key.", file=sys.stderr)
+            return 1
+
+        if args.fixer_batch_size == DEFAULT_FIXER_BATCH_SIZE:
+            args.fixer_batch_size = 0
+            
+        if args.max_batch_characters == DEFAULT_MAX_BATCH_CHARACTERS:
+            args.max_batch_characters *= 5
+        if args.max_prompt_tokens == DEFAULT_MAX_PROMPT_TOKENS:
+            args.max_prompt_tokens *= 5
+
+    if args.fixer_model is None:
+        args.fixer_model = "qwen3.5" if args.ollama_cloud else DEFAULT_FIXER_MODEL
+    if args.review_model is None:
+        args.review_model = "qwen3.5" if args.ollama_cloud else DEFAULT_FIXER_MODEL
+
     root = Path(args.root).expanduser().resolve()
     if not root.exists():
         print(f"Root does not exist: {root}", file=sys.stderr)
         return 1
 
     run_review = not args.skip_review
-    if args.skip_qwen and run_review:
-        print("Review pass disabled because --skip-qwen was requested.", flush=True)
+    if args.skip_fixer and run_review:
+        print("Review pass disabled because --skip-fixer was requested.", flush=True)
         run_review = False
 
     ffmpeg_bin = ensure_ffmpeg_on_path()
@@ -303,8 +356,8 @@ def main(
             print(f"    transcript: {job.transcript_path} ({'build' if job.needs_transcript else 'reuse'})", flush=True)
             print(f"    raw_vtt: {job.raw_vtt_path} ({'build' if job.needs_raw_vtt else 'reuse'})", flush=True)
             vtt_mode = "build" if job.needs_cleaned_vtt else "reuse"
-            if not args.skip_qwen:
-                vtt_mode = f"{vtt_mode} -> qwen"
+            if not args.skip_fixer:
+                vtt_mode = f"{vtt_mode} -> fixer"
             print(f"    cleaned_vtt: {job.cleaned_vtt_path} ({vtt_mode})", flush=True)
             review_mode = "skip"
             if run_review:
@@ -321,10 +374,10 @@ def main(
     )
     try:
         model = load_model(args.model_name, verbose=args.verbose)
-        if not args.skip_qwen:
-            print(f"Qwen cleanup model: {args.qwen_model}", flush=True)
+        if not args.skip_fixer:
+            print(f"Fixer cleanup model: {args.fixer_model}", flush=True)
             if glossary_paths:
-                print("Qwen glossaries:", flush=True)
+                print("Fixer glossaries:", flush=True)
                 for path in glossary_paths:
                     print(f"  {path}", flush=True)
         if run_review:
@@ -348,19 +401,21 @@ def main(
                         verbose=args.verbose,
                     )
                     write_vtt_entries(entries, job.raw_vtt_path)
-                    if args.skip_qwen:
+                    if args.skip_fixer:
                         shutil.copyfile(job.raw_vtt_path, job.cleaned_vtt_path)
                     else:
                         correct_vtt_file(
                             job.raw_vtt_path,
                             output_path=job.cleaned_vtt_path,
                             glossary_paths=glossary_paths,
-                            model=args.qwen_model,
+                            model=args.fixer_model,
                             ollama_url=args.ollama_url,
-                            batch_size=args.qwen_batch_size,
-                            temperature=args.qwen_temperature,
-                            context_window=args.qwen_context_window,
+                            batch_size=args.fixer_batch_size,
+                            temperature=args.fixer_temperature,
+                            context_window=args.fixer_context_window,
                             progress=True,
+                            max_batch_characters=args.max_batch_characters,
+                            max_prompt_tokens=args.max_prompt_tokens,
                         )
                     write_plain_text_from_vtt(job.cleaned_vtt_path, job.transcript_path)
                 else:
@@ -413,8 +468,8 @@ def main(
         if not args.keep_models_loaded:
             release_parakeet_model(model)
             models_to_unload: list[str] = []
-            if not args.skip_qwen:
-                models_to_unload.append(args.qwen_model)
+            if not args.skip_fixer:
+                models_to_unload.append(args.fixer_model)
             if run_review:
                 models_to_unload.append(args.review_model)
             for model_name in sorted(set(models_to_unload)):

@@ -34,15 +34,29 @@ def call_ollama(
     if format_schema is not None:
         body["format"] = format_schema
 
+    headers = {"Content-Type": "application/json"}
+    if "ollama.com" in url:
+        api_key = os.environ.get("OLLAMA_API_KEY")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+
     request = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     try:
         with urllib.request.urlopen(request, timeout=600) as response:
             result = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 429 and "ollama.com" in url:
+            raise RuntimeError(
+                f"Ollama Cloud rate limit exceeded. Usage is based on GPU time and concurrency limits. "
+                f"Please see https://ollama.com/pricing for more details. "
+                f"Original error: {exc}"
+            ) from exc
+        raise RuntimeError(f"Failed to reach Ollama at {url}: {exc}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"Failed to reach Ollama at {url}: {exc}") from exc
 
@@ -78,6 +92,9 @@ def find_ollama_executable() -> str | None:
 
 
 def unload_ollama_model(model: str, ollama_url: str) -> None:
+    if "ollama.com" in ollama_url:
+        return
+
     executable = find_ollama_executable()
     if executable:
         subprocess.run(

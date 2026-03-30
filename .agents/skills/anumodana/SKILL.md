@@ -14,7 +14,7 @@ Before running the pipeline, ensure the following are available on the system:
 - **uv**: Python dependency manager.
 - **FFmpeg**: For audio processing.
 - **Ollama**: For cleanup and review passes.
-- **Model**: `qwen3.5:4b` must be pulled in Ollama (`ollama pull qwen3.5:4b`).
+- **Model**: A fixer model (default: `qwen3.5:4b`) must be pulled in Ollama (`ollama pull qwen3.5:4b`).
 - **CUDA**: Strongly recommended for performance.
 
 ## 2. Environment Verification
@@ -27,7 +27,9 @@ uv run python -c "import torch; print('CUDA Available:', torch.cuda.is_available
 
 ## 3. Choose Directory
 
-Before proceeding with the run, ask the human for the absolute path to the teachings directory they want to process.
+Before proceeding with the run, ask the human for:
+1. The absolute path to the teachings directory they want to process.
+2. Whether they intend to run the fixer and review models locally (which requires a sufficient GPU) or on the cloud (which requires a free Ollama account API key). If they choose the cloud, provide them with a link to `https://docs.ollama.com/cloud#cloud-api-access` and instruct them to save it in their `.env` file.
 
 - **Check Path**: Verify the path exists and follows the expected structure (at least one collection folder with a `Raw/` subdirectory).
 
@@ -54,13 +56,13 @@ uv run python -m anumodana --root "C:\path\to\your\teachings"
 ### Important Flags:
 - `--dry-run`: Evaluate what would be processed without writing files.
 - `--limit <N>`: Process only the first N files.
-- `--skip-qwen`: Skip the AI cleanup pass (faster, but lower quality).
+- `--skip-fixer`: Skip the AI cleanup pass (faster, but lower quality).
 - `--skip-review`: Skip the AI review pass.
 - `--chunk-seconds <N>`: Adjust VRAM usage (default 120, use 60 for lower VRAM).
 
 ## 5. Post-Process Verification
 
 After a run, check the following:
-- `_anumodana_review_manifest.csv`: Look for `needs_human_review = True`.
+- `_anumodana_review_manifest.csv`: Look for `needs_human_review = True`. (Note: Path columns reference leaf folder names like the date).
 - `.review.md`: Read human-readable concerns for specific sessions.
 - `.txt`: The final shareable transcript.

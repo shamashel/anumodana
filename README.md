@@ -16,7 +16,7 @@ The current pipeline is:
 1. media file
 2. `.mp3`
 3. `nvidia/parakeet-tdt-0.6b-v3`
-4. local `qwen3.5:4b` cleanup pass
+4. local AI fixer pass (default: `qwen3.5:4b`)
 5. local review pass
 
 ## Current Limitations
@@ -51,7 +51,7 @@ You need:
 - Python 3.12
 - FFmpeg
 - [Ollama](https://ollama.com/)
-- the local model `qwen3.5:4b`
+- a local fixer model (default: `qwen3.5:4b`)
 
 If you already have `uv`, the repo can set up Python and dependencies with:
 
@@ -70,6 +70,25 @@ FFmpeg should either be on your `PATH`, or installed under:
 ```text
 %LOCALAPPDATA%\Programs\ffmpeg
 ```
+
+### 1.5. Environment and Model Setup (Local vs. Cloud)
+
+You can choose to run the fixer and review models either entirely locally or on the cloud.
+
+**Option A: Local Execution (Requires sufficient GPU VRAM)**
+This is the default. It requires zero setup beyond downloading the model to your local machine:
+```powershell
+ollama pull qwen3.5:4b
+```
+
+**Option B: Cloud Execution (Free, slower, zero local GPU usage)**
+If you'd like to offload inference to Ollama Cloud:
+1. Copy the `.env.example` file to `.env` in the root of the project.
+2. Sign up and grab an API key at [Ollama Cloud API](https://docs.ollama.com/cloud#cloud-api-access).
+3. Paste the key in your `.env` like: `OLLAMA_API_KEY="your_api_key_here"`.
+4. Run the pipeline with the `--ollama-cloud` flag.
+
+Because this project uses `uv`, your `.env` file is automatically loaded into the environment at runtime!
 
 ### 2. Put your teachings in one folder tree
 
@@ -110,60 +129,6 @@ uv run python -m anumodana --root "C:\path\to\teachings"
 ```
 
 You can also point directly at a single collection folder or a direct `Trimmed` folder if you want to process just one collection.
-
-The repo now has one CLI entry point:
-
-```powershell
-uv run python -m anumodana --help
-```
-
-The full pipeline is the default behavior. Standalone cleanup and review live under:
-
-```powershell
-uv run python -m anumodana cleanup --help
-uv run python -m anumodana review --help
-```
-
-## If You Are Using An AI Helper
-
-You can usually tell your AI assistant something like:
-
-```text
-Please verify this repo is set up correctly, make sure CUDA is available, then run the transcription pipeline on my teachings folder and summarize anything that needs human review.
-```
-
-That is often the smoothest path for non-technical users.
-
-## Common Commands
-
-Dry run without writing files:
-
-```powershell
-uv run python -m anumodana --dry-run
-```
-
-Only process the first 5 files:
-
-```powershell
-uv run python -m anumodana --limit 5
-```
-
-Overwrite existing outputs:
-
-```powershell
-uv run python -m anumodana --overwrite
-```
-
-Skip cleanup:
-
-```powershell
-uv run python -m anumodana --skip-qwen
-```
-
-Skip review:
-
-```powershell
-uv run python -m anumodana --skip-review
 ```
 
 Keep models loaded after the run:
@@ -243,7 +208,7 @@ Under each collection's sibling `Transcript Revision/...` tree, the pipeline als
 At the root of that revision tree, it also writes:
 
 - `_anumodana_review_manifest.csv`
-  A one-row-per-session summary of outputs and review status.
+  A one-row-per-session summary. Path columns (source_path, etc.) reference the leaf folder name (e.g. the date) for easier readability.
 
 ## Standalone Cleanup
 
@@ -349,4 +314,4 @@ If the run succeeds, direct the human to:
 
 - the `.txt` files for normal reading and sharing
 - the `.review.md` files for human-readable concerns
-- `_anumodana_review_manifest.csv` for the overall summary
+- `_anumodana_review_manifest.csv`: Look for `needs_human_review = True`. (Note: Path columns reference leaf folder names like the date).
