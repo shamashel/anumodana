@@ -1,46 +1,22 @@
+"""Job discovery — find source files and determine what work is needed."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 
-from anumodana.output_paths import (
-    audio_output_path,
-    cleaned_vtt_output_path,
-    raw_vtt_output_path,
-    transcript_output_path,
-    review_json_output_path,
-    review_md_output_path,
-)
+from anumodana.helpers.models import OutputPaths
 
 
 SUPPORTED_EXTENSIONS = {
-    ".aac",
-    ".flac",
-    ".m4a",
-    ".m4v",
-    ".mkv",
-    ".mov",
-    ".mp3",
-    ".mp4",
-    ".mpeg",
-    ".mpg",
-    ".wav",
-    ".webm",
+    ".aac", ".flac", ".m4a", ".m4v", ".mkv", ".mov",
+    ".mp3", ".mp4", ".mpeg", ".mpg", ".wav", ".webm",
 }
 
 SOURCE_PRIORITY = {
-    ".mp4": 0,
-    ".mkv": 1,
-    ".mov": 2,
-    ".webm": 3,
-    ".m4v": 4,
-    ".mpeg": 5,
-    ".mpg": 6,
-    ".m4a": 7,
-    ".mp3": 8,
-    ".flac": 9,
-    ".aac": 10,
-    ".wav": 11,
+    ".mp4": 0, ".mkv": 1, ".mov": 2, ".webm": 3, ".m4v": 4,
+    ".mpeg": 5, ".mpg": 6, ".m4a": 7, ".mp3": 8, ".flac": 9,
+    ".aac": 10, ".wav": 11,
 }
 
 EXCLUDED_DIR_NAMES = {".git", ".venv", ".uv-cache", ".uv-python", "__pycache__", "Transcript Revision"}
@@ -54,12 +30,7 @@ TRANSIENT_SIDECAR_SUFFIXES = (
 @dataclass(frozen=True)
 class Job:
     source_path: Path
-    audio_path: Path
-    transcript_path: Path
-    raw_vtt_path: Path
-    cleaned_vtt_path: Path
-    review_json_path: Path
-    review_md_path: Path
+    outputs: OutputPaths
     needs_audio: bool
     needs_transcript: bool
     needs_raw_vtt: bool
@@ -104,17 +75,12 @@ def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[J
     skipped = 0
 
     for source_path in iter_preferred_sources(root):
-        audio_path = audio_output_path(source_path)
-        transcript_path = transcript_output_path(source_path)
-        raw_vtt_path = raw_vtt_output_path(root, source_path)
-        cleaned_vtt_path = cleaned_vtt_output_path(root, source_path)
-        review_json_path = review_json_output_path(root, source_path)
-        review_md_path = review_md_output_path(root, source_path)
-        has_audio = audio_path.exists()
-        has_transcript = transcript_path.exists()
-        has_raw_vtt = raw_vtt_path.exists()
-        has_cleaned_vtt = cleaned_vtt_path.exists()
-        has_review = review_json_path.exists() and review_md_path.exists()
+        outputs = OutputPaths.from_source(root, source_path)
+        has_audio = outputs.audio.exists()
+        has_transcript = outputs.transcript.exists()
+        has_raw_vtt = outputs.raw_vtt.exists()
+        has_cleaned_vtt = outputs.cleaned_vtt.exists()
+        has_review = outputs.review_json.exists() and outputs.review_md.exists()
 
         if (
             not overwrite
@@ -130,12 +96,7 @@ def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[J
         jobs.append(
             Job(
                 source_path=source_path,
-                audio_path=audio_path,
-                transcript_path=transcript_path,
-                raw_vtt_path=raw_vtt_path,
-                cleaned_vtt_path=cleaned_vtt_path,
-                review_json_path=review_json_path,
-                review_md_path=review_md_path,
+                outputs=outputs,
                 needs_audio=overwrite or not has_audio,
                 needs_transcript=overwrite or not has_transcript,
                 needs_raw_vtt=overwrite or not has_raw_vtt,
@@ -150,12 +111,12 @@ def discover_jobs(root: Path, overwrite: bool, run_review: bool) -> tuple[list[J
 def cleanup_transient_artifacts(job: Job) -> list[Path]:
     keep_paths = {
         job.source_path.resolve(),
-        job.audio_path.resolve(),
-        job.transcript_path.resolve(),
-        job.raw_vtt_path.resolve(),
-        job.cleaned_vtt_path.resolve(),
-        job.review_json_path.resolve(),
-        job.review_md_path.resolve(),
+        job.outputs.audio.resolve(),
+        job.outputs.transcript.resolve(),
+        job.outputs.raw_vtt.resolve(),
+        job.outputs.cleaned_vtt.resolve(),
+        job.outputs.review_json.resolve(),
+        job.outputs.review_md.resolve(),
     }
     candidates: list[Path] = []
     stem_path = job.source_path.with_suffix("")

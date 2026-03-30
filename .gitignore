@@ -6,5 +6,5 @@ __pycache__/
 *.json
 *.tmp
 
-# Configuration
+# Configuration is stored externally in ~/.config/anumodana/config.json
 .env

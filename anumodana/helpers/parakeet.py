@@ -1,3 +1,5 @@
+"""Parakeet ASR transcription — load model, chunk audio, transcribe."""
+
 from __future__ import annotations
 
 import contextlib
@@ -11,9 +13,10 @@ import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from anumodana.ffmpeg import extract_chunk_wav, get_media_duration_seconds
-from anumodana.transcript import VttEntry, build_vtt_entries
+from anumodana.helpers.ffmpeg import extract_chunk_wav, get_media_duration_seconds
+from anumodana.helpers.transcript import VttEntry, build_vtt_entries
 
+logger = logging.getLogger("anumodana")
 
 DEFAULT_MODEL = "nvidia/parakeet-tdt-0.6b-v3"
 DEFAULT_CHUNK_SECONDS = 120
@@ -95,12 +98,12 @@ def load_model(model_name: str, *, verbose: bool = False) -> object:
 
         _configure_nemo_logging(verbose)
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"Loading model: {model_name}", flush=True)
-        print(f"Using device: {device}", flush=True)
+        logger.info("Loading model: %s", model_name)
+        logger.info("Using device: %s", device)
         started = time.perf_counter()
         model = nemo_asr.models.ASRModel.from_pretrained(model_name=model_name)
         model = model.to(device)
-        print(f"Model ready in {time.perf_counter() - started:.2f}s", flush=True)
+        logger.info("Model ready in %.2fs", time.perf_counter() - started)
         return model
 
 
@@ -142,9 +145,9 @@ def transcribe_audio_to_entries(
             start=1,
         ):
             chunk_path = temp_dir_path / f"chunk_{chunk_index:04d}.wav"
-            print(
-                f"  Chunk {chunk_index}: {start_seconds:.1f}s -> {start_seconds + length_seconds:.1f}s",
-                flush=True,
+            logger.info(
+                "  Chunk %d: %.1fs -> %.1fs",
+                chunk_index, start_seconds, start_seconds + length_seconds,
             )
             extract_chunk_wav(source_media, chunk_path, start_seconds, length_seconds)
             hypothesis = transcribe_wav(model, chunk_path, verbose=verbose)

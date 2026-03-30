@@ -1,8 +1,9 @@
+"""Glossary loading for fixer and review prompts."""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 GLOSSARY_ROOT = PROJECT_ROOT / "glossaries"

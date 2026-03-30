@@ -1,3 +1,5 @@
+"""VTT transcript parsing, rendering, and Parakeet output conversion."""
+
 from __future__ import annotations
 
 import re
