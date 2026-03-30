@@ -72,7 +72,7 @@ def _validate_cloud_key(api_key: str) -> bool:
         return False
 
 
-def _check_local_ollama() -> bool:
+def _check_local_ollama(yes: bool = False) -> bool:
     """Check if Ollama is installed and the default model is available."""
     try:
         from ollama import Client, ResponseError
@@ -85,7 +85,7 @@ def _check_local_ollama() -> bool:
             return True
         else:
             click.echo(f"  ✗ Model {DEFAULT_LOCAL_MODEL} not found locally.")
-            if click.confirm(f"    Pull {DEFAULT_LOCAL_MODEL} now?", default=True):
+            if yes or click.confirm(f"    Pull {DEFAULT_LOCAL_MODEL} now?", default=True):
                 click.echo(f"    Pulling {DEFAULT_LOCAL_MODEL}...")
                 client.pull(DEFAULT_LOCAL_MODEL)
                 click.echo(f"  ✓ {DEFAULT_LOCAL_MODEL} pulled successfully.")
@@ -97,8 +97,12 @@ def _check_local_ollama() -> bool:
         return False
 
 
-def run_onboard() -> None:
-    """Run the interactive onboarding flow."""
+def run_onboard(
+    mode: str | None = None,
+    api_key: str | None = None,
+    yes: bool = False,
+) -> None:
+    """Run the onboarding flow."""
     click.echo("")
     click.echo("  Welcome to Anumodana!")
     click.echo("  Let's get your transcription setup configured.")
@@ -108,12 +112,16 @@ def run_onboard() -> None:
     config = load_config()
 
     # Step 1: mode selection.
-    click.echo("  How would you like to run the AI fixer and review?")
-    click.echo("    [1] Cloud (recommended — no GPU needed, free Ollama Cloud tier)")
-    click.echo("    [2] Local (requires a GPU and local Ollama)")
-    click.echo("")
-    mode_choice = click.prompt("  Choice", type=click.IntRange(1, 2), default=1)
-    use_cloud = mode_choice == 1
+    if mode:
+        use_cloud = (mode == "cloud")
+        click.echo(f"  Mode selected via CLI: {mode}")
+    else:
+        click.echo("  How would you like to run the AI fixer and review?")
+        click.echo("    [1] Cloud (recommended — no GPU needed, free Ollama Cloud tier)")
+        click.echo("    [2] Local (requires a GPU and local Ollama)")
+        click.echo("")
+        mode_choice = click.prompt("  Choice", type=click.IntRange(1, 2), default=1)
+        use_cloud = mode_choice == 1
     click.echo("")
 
     # Step 2: system checks.
@@ -124,19 +132,22 @@ def run_onboard() -> None:
 
     if use_cloud:
         # Step 3a: cloud setup.
-        click.echo("  To use Ollama Cloud, you need a free API key.")
-        click.echo("    1. Sign up at https://ollama.com")
-        click.echo("    2. Get your key at https://ollama.com/settings/keys")
-        click.echo("")
-        api_key = click.prompt("  Paste your API key", hide_input=True)
-        api_key = api_key.strip()
+        if api_key:
+            click.echo("  API key provided via CLI.")
+            current_api_key = api_key
+        else:
+            click.echo("  To use Ollama Cloud, you need a free API key.")
+            click.echo("    1. Sign up at https://ollama.com")
+            click.echo("    2. Get your key at https://ollama.com/settings/keys")
+            click.echo("")
+            current_api_key = click.prompt("  Paste your API key", hide_input=True).strip()
 
         click.echo("")
         click.echo("  Validating API key...")
-        if _validate_cloud_key(api_key):
+        if _validate_cloud_key(current_api_key):
             click.echo("  ✓ API key validated.")
             config.mode = "cloud"
-            config.api_key = api_key
+            config.api_key = current_api_key
             config.fixer.ollama = OllamaConfig(
                 model=DEFAULT_CLOUD_MODEL,
                 host=CLOUD_OLLAMA_HOST,
@@ -153,7 +164,7 @@ def run_onboard() -> None:
     else:
         # Step 3b: local setup.
         click.echo("  Checking local Ollama...")
-        if not _check_local_ollama():
+        if not _check_local_ollama(yes=yes):
             click.echo("  Local setup incomplete. You can re-run `anumodana onboard` later.")
             click.echo("")
             return

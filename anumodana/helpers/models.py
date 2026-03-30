@@ -4,15 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
 # Fixer (correction) response models
 # ---------------------------------------------------------------------------
 class CorrectionItem(BaseModel):
-    id: int
-    text: str
+    id: int = Field(description="The unique cue ID from the original VTT.")
+    text: str = Field(description="The cleaned text for this cue.")
 
 
 class CorrectionResponse(BaseModel):
@@ -23,23 +23,23 @@ class CorrectionResponse(BaseModel):
 # Review response models
 # ---------------------------------------------------------------------------
 class ReviewNote(BaseModel):
-    timing: str
-    note: str
+    timing: str = Field(description="The timestamp of the cue being noted.")
+    note: str = Field(description="The human-readable note about the cleanup choice.")
 
 
 class Concern(BaseModel):
-    timing: str
-    issue_type: str
-    severity: str
-    why_weird: str
-    suggested_action: str
+    timing: str = Field(description="The timestamp of the cue where the concern occurs.")
+    issue_type: str = Field(description="The type of issue (e.g. 'untranslated', 'semantic', 'speaker').")
+    severity: str = Field(description="The severity of the issue ('low', 'medium', 'high').")
+    why_weird: str = Field(description="Why this specifically needs attention.")
+    suggested_action: str = Field(description="What a human should do to fix it.")
 
 
 class ReviewResponse(BaseModel):
-    summary: str
-    review_notes: list[ReviewNote]
-    concerns: list[Concern]
-    needs_human_review: bool
+    summary: str = Field(description="A brief summary of the overall transcript quality.")
+    review_notes: list[ReviewNote] = Field(description="A list of noteworthy cleanup choices.")
+    concerns: list[Concern] = Field(description="A list of suspicious places needing human attention.")
+    needs_human_review: bool = Field(description="Whether a human should review this file.")
 
 
 # ---------------------------------------------------------------------------

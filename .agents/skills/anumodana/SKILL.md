@@ -14,29 +14,38 @@ Before running the pipeline, ensure the following are available on the system:
 - **uv**: Python dependency manager. Run `uv sync` in the repo root.
 - **FFmpeg**: For audio processing. Must be on `PATH` or at `%LOCALAPPDATA%\Programs\ffmpeg`.
 
-## 2. First-Time Setup
+## 2. First-Time Setup (Agent-Centric)
 
-Run the onboarding wizard:
+As an AI agent, you should handle onboarding non-interactively using CLI flags.
 
-```powershell
-uv run python -m anumodana onboard
-```
+### 2.1 Check if already configured
 
-This will:
-- Ask the user to choose cloud or local mode
-- Check for FFmpeg and GPU availability
-- Walk through API key setup (cloud) or model pulling (local)
-- Save config to `~/.config/anumodana/config.json`
-
-**Recommend cloud mode unless the user has a specific reason to run locally.**
-
-### If already configured
-
-Check if config exists:
+Before running the full setup, check if a valid configuration already exists:
 
 ```powershell
-uv run python -c "from anumodana.config import load_config; c = load_config(); print(f'Mode: {c.mode}'); print(f'API key: {\"configured\" if c.api_key else \"NOT SET\"}')"
+uv run python -c "from anumodana.helpers.config import load_config; c = load_config(); print(f'Mode: {c.mode}'); print(f'API key: {\"configured\" if c.api_key else \"NOT SET\"}')"
 ```
+
+### 2.2 Automated Onboarding
+
+If the configuration is missing or invalid (e.g., cloud mode selected but no API key), run the onboarding command with non-interactive flags. 
+
+**Standard Cloud Setup (Recommended)**:
+Ask the human for their Ollama Cloud API key, then run:
+
+```powershell
+uv run python -m anumodana onboard --mode cloud --api-key "YOUR_API_KEY" --yes
+```
+
+**Standard Local Setup**:
+If the user specifically requests local execution and has a GPU, run:
+
+```powershell
+uv run python -m anumodana onboard --mode local --yes
+```
+
+> [!IMPORTANT]
+> Always include the `--yes` flag when running onboarding as an agent. This avoids interactive confirmation prompts for operations like pulling local models.
 
 ## 3. Choose Directory
 

@@ -248,8 +248,11 @@ def review(
 # onboard — interactive setup wizard
 # ---------------------------------------------------------------------------
 @cli.command()
-def onboard():
+@click.option("--mode", type=click.Choice(["cloud", "local"]), help="Onboarding mode.")
+@click.option("--api-key", default="", help="Ollama Cloud API key.")
+@click.option("--yes", is_flag=True, help="Auto-confirm all prompts.")
+def onboard(mode, api_key, yes):
     """Interactive setup wizard — configure Anumodana for first use."""
     _setup_logging()
     from anumodana.commands.onboard import run_onboard
-    run_onboard()
+    run_onboard(mode=mode, api_key=api_key, yes=yes)

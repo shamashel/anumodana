@@ -35,9 +35,27 @@ Your tasks:
 Output rules:
 - Return one JSON object only.
 - `summary` should be short and practical.
-- `review_notes` should be sparse and useful, not chain-of-thought.
-- `concerns` should be specific and reference exact cue timings.
+- `review_notes` should be sparse and useful, not chain-of-thought. Use `timing` not `cue_id`.
+- `concerns` should be specific and reference exact cue timings in the `timing` field.
 - `needs_human_review` should be true if any concern is materially risky, semantically broken, or likely misleading.
+
+Example JSON output:
+{
+  "summary": "The transcript is mostly clean, except for a few Pali terms and a corrupted chant at the beginning.",
+  "review_notes": [
+    { "timing": "00:00:15,000", "note": "Corrected 'Ajahn Brahm' capitalization." }
+  ],
+  "concerns": [
+    {
+      "timing": "00:01:45,000",
+      "issue_type": "chant",
+      "severity": "high",
+      "why_weird": "The opening chant was severely mangled by ASR and the fixer could not recover it.",
+      "suggested_action": "Manually re-transcribe the chant."
+    }
+  ],
+  "needs_human_review": true
+}
 
 Focus on:
 - corrupted chants or refuge formulas
