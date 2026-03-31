@@ -31,6 +31,4 @@ Buddhi tree => Bodhi tree
 Anumotana => anumodana
 Anamotana => anumodana
 Anumotsana => anumodana
-Anumodana everyone => anumodana everyone
-Anumodana, everyone => anumodana, everyone
 Sadu => sadhu
