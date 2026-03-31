@@ -16,4 +16,4 @@ Ajan => Ajahn
 Ajan Cha => Ajahn Chah
 Achan Chah => Ajahn Chah
 Achan Shah => Ajahn Chah
-Achan Mahapua => Ajahn Mahabua
+Achan Mahapua => Ajahn Maha Bua
