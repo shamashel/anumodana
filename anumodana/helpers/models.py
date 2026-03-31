@@ -49,6 +49,7 @@ DEFAULT_AUDIO_EXTENSION = ".mp3"
 DEFAULT_MANIFEST_NAME = "_anumodana_review_manifest.csv"
 DEFAULT_COLLECTION_NAME = "Ajahn Wade Recordings"
 DEFAULT_REVISION_DIR_NAME = "Transcript Revision"
+DEFAULT_ROOT = Path.home() / "Downloads" / DEFAULT_COLLECTION_NAME
 
 
 def _revision_dir(root: Path) -> Path:

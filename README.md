@@ -10,15 +10,13 @@ For each recording, the pipeline writes:
 
 - a same-name mono 16 kHz `.mp3`
 - a human-readable transcript: `.txt`
-- revision artifacts under `Transcript Revision/`: `.parakeet.raw.vtt`, cleaned `.vtt`, `.review.json`, `.review.md`
-- a revision summary file: `_anumodana_review_manifest.csv`
-
-The pipeline:
+- revision artifacts under `Transcript Revision/` (if `--review` is used): `.parakeet.raw.vtt`, cleaned `.vtt`, `.review.json`, `.review.md`
+- a revision summary file (if `--review` is used): `_anumodana_review_manifest.csv`
 
 1. media file → `.mp3`
 2. `nvidia/parakeet-tdt-0.6b-v3` (local transcription — uses your GPU if you have one, otherwise runs on CPU)
 3. AI fixer pass (Ollama Cloud by default, or local with `--local`)
-4. AI review pass (Ollama Cloud by default, or local with `--local`)
+4. AI review pass (opt-in with `--review`)
 
 ## Who This Is For
 
@@ -35,7 +33,7 @@ If you are not technical, the easiest path is usually:
 1. Install the prerequisites below once (or ask someone to help you).
 2. Open this project in your AI assistant (Codex, Claude Code/Coworker, or similar).
 3. Ask it to run `anumodana onboard` and follow the prompts.
-4. Ask it to run `anumodana pipeline --root "C:\path\to\teachings"`.
+4. Ask it to run `anumodana pipeline --root "C:\path\to\teachings" --review`.
 5. Ask it to summarize anything flagged for human review in `_anumodana_review_manifest.csv`.
 
 ## Current Limitations
@@ -105,30 +103,16 @@ Root/
 
 The collection name can be anything. The important part is the `Raw/`, `Trimmed/`, and `Transcript Revision/` subdirectory structure.
 
-### 4. Run the pipeline
-
-```powershell
-uv run python -m anumodana pipeline --root "C:\path\to\teachings"
-```
-
-Or with the default root:
-
-```powershell
-uv run python -m anumodana
-```
-
-## Commands
-
 ### `anumodana pipeline` (default)
 
-Run the full pipeline: transcribe → fix → review.
+Run the transcription pipeline: transcribe → fix. Use `--review` to also run the review pass.
 
 ```powershell
 uv run python -m anumodana pipeline --root "C:\path\to\teachings"
+uv run python -m anumodana pipeline --root "C:\path\to\teachings" --review
 uv run python -m anumodana pipeline --root "C:\path\to\teachings" --local
 uv run python -m anumodana pipeline --root "C:\path\to\teachings" --dry-run
 uv run python -m anumodana pipeline --root "C:\path\to\teachings" --limit 2
-uv run python -m anumodana pipeline --root "C:\path\to\teachings" --skip-fixer
 uv run python -m anumodana pipeline --root "C:\path\to\teachings" --keep-models-loaded
 uv run python -m anumodana pipeline --root "C:\path\to\teachings" --verbose
 ```
@@ -140,6 +124,7 @@ Run only the ASR step (Parakeet → raw VTT → plain text). No fixer, no review
 ```powershell
 uv run python -m anumodana transcribe --root "C:\path\to\teachings"
 ```
+
 
 ### `anumodana fix`
 
@@ -194,14 +179,14 @@ Under each collection's sibling `Transcript Revision/...` tree, the pipeline als
 - `session.vtt`
   The cleaned timing-aligned subtitle file used for review.
 - `session.review.json`
-  Structured review data.
+  Structured review data (generated if `--review` is used).
 - `session.review.md`
-  A human-readable review note.
+  A human-readable review note (generated if `--review` is used).
 
 At the root of that revision tree, it also writes:
 
 - `_anumodana_review_manifest.csv`
-  A one-row-per-session summary. Path columns reference the leaf folder name (e.g. the date) for easier readability.
+  A one-row-per-session summary (generated if `--review` is used). Path columns reference the leaf folder name (e.g. the date) for easier readability.
 
 ## Glossaries
 
@@ -216,7 +201,7 @@ This makes it easier to adapt the project for a different monastery, lineage, or
 
 ## For AI Agents
 
-Use this section as the fast path.
+If you are an AI agent, please see the SKILL.md located at `.agents/skills/anumodana/SKILL.md` for a comprehensive guide on running this pipeline, handling onboarding, and troubleshooting.
 
 ### Setup checklist
 
@@ -249,10 +234,10 @@ If the user wants a real run:
 uv run python -m anumodana pipeline --root "<parent folder or collection folder>"
 ```
 
-For fully local runs:
+If the user specifically wants a review pass:
 
 ```powershell
-uv run python -m anumodana pipeline --root "<parent folder or collection folder>" --local
+uv run python -m anumodana pipeline --review --root "<parent folder or collection folder>"
 ```
 
 ### What to tell the human
@@ -263,8 +248,8 @@ Surface these things clearly:
 - whether the pipeline is using Ollama Cloud or local Ollama for fixer/review
 - whether the required models were downloaded successfully
 - which file is currently being processed
-- where `_anumodana_review_manifest.csv` was written
-- whether any sessions were flagged with `needs_human_review = true`
+- where `_anumodana_review_manifest.csv` was written (if using `--review`)
+- whether any sessions were flagged with `needs_human_review = true` (if using `--review`)
 - any failures involving missing FFmpeg, missing Ollama, missing model files, or missing API keys
 
 If the run succeeds, direct the human to:

@@ -67,10 +67,16 @@ Root/
 
 ## 5. Running the Pipeline
 
-### Full pipeline (transcribe → fix → review):
+### Transcription pipeline (transcribe → fix):
 
 ```powershell
 uv run python -m anumodana pipeline --root "C:\path\to\your\teachings"
+```
+
+### Full pipeline (transcribe → fix → review):
+
+```powershell
+uv run python -m anumodana pipeline --review --root "C:\path\to\your\teachings"
 ```
 
 ### Transcription only (no fixer, no review):
@@ -87,10 +93,9 @@ uv run python -m anumodana pipeline --root "C:\path\to\your\teachings" --local
 
 ### Important Flags:
 - `--dry-run`: Evaluate what would be processed without writing files.
+- `--review`: Enable the AI review pass and generate a manifest.
 - `--local`: Run fixer and review models locally instead of via Ollama Cloud.
 - `--limit <N>`: Process only the first N files.
-- `--skip-fixer`: Skip the AI fixer pass (faster, but lower quality).
-- `--skip-review`: Skip the AI review pass.
 - `--keep-models-loaded`: Do not unload models after the run.
 - `--verbose`: Show verbose library diagnostics.
 
@@ -104,6 +109,6 @@ uv run python -m anumodana review "C:\path\to\raw.vtt" "C:\path\to\cleaned.vtt"
 ## 6. Post-Process Verification
 
 After a run, check the following:
-- `_anumodana_review_manifest.csv`: Look for `needs_human_review = True`. (Note: Path columns reference leaf folder names like the date).
-- `.review.md`: Read human-readable concerns for specific sessions.
+- `_anumodana_review_manifest.csv`: Look for `needs_human_review = True`. (Only if `--review` was used).
+- `.review.md`: Read human-readable concerns for specific sessions. (Only if `--review` was used).
 - `.txt`: The final shareable transcript.

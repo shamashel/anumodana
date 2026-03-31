@@ -45,18 +45,17 @@ def cli():
 @click.option("--limit", default=0, type=int, help="Process only the first N jobs.")
 @click.option("--dry-run", is_flag=True, help="List what would run without doing it.")
 @click.option("--local", is_flag=True, help="Run fixer and review locally instead of via Ollama Cloud.")
-@click.option("--skip-fixer", is_flag=True, help="Skip the AI fixer correction pass.")
-@click.option("--skip-review", is_flag=True, help="Skip the AI review pass.")
+@click.option("--review", is_flag=True, help="Perform the AI review pass and generate a manifest.")
 @click.option("--glossary-file", multiple=True, help="Additional glossary file(s).")
 @click.option("--no-default-glossaries", is_flag=True, help="Do not load the built-in glossary stack.")
 @click.option("--manifest-path", default="", help="Where to write the review manifest CSV.")
 @click.option("--keep-models-loaded", is_flag=True, help="Do not unload models after the run.")
 @click.option("--verbose", is_flag=True, help="Show verbose library diagnostics.")
 def pipeline(
-    root, overwrite, limit, dry_run, local, skip_fixer, skip_review,
+    root, overwrite, limit, dry_run, local, review,
     glossary_file, no_default_glossaries, manifest_path, keep_models_loaded, verbose,
 ):
-    """Run the full pipeline: transcribe → fix → review."""
+    """Run the transcription pipeline: transcribe → fix (optional review)."""
     _setup_logging(verbose)
     from anumodana.commands.pipeline import DEFAULT_ROOT, run_pipeline
 
@@ -77,8 +76,7 @@ def pipeline(
         overwrite=overwrite,
         limit=limit,
         dry_run=dry_run,
-        skip_fixer=skip_fixer,
-        skip_review=skip_review,
+        review=review,
         glossary_extra=list(glossary_file),
         no_default_glossaries=no_default_glossaries,
         manifest_path_arg=manifest_path,
@@ -100,19 +98,18 @@ def pipeline(
 def transcribe(root, overwrite, limit, dry_run, keep_models_loaded, verbose):
     """Transcribe audio/video files to raw VTT using Parakeet (no fixer, no review)."""
     _setup_logging(verbose)
-    from anumodana.commands.pipeline import DEFAULT_ROOT, run_pipeline
+    from anumodana.commands.pipeline import DEFAULT_ROOT
+    from anumodana.commands.transcribe import run_transcribe
 
     config = load_config()
     resolved_root = Path(root) if root else DEFAULT_ROOT
 
-    raise SystemExit(run_pipeline(
+    raise SystemExit(run_transcribe(
         config=config,
         root=resolved_root,
         overwrite=overwrite,
         limit=limit,
         dry_run=dry_run,
-        skip_fixer=True,
-        skip_review=True,
         keep_models_loaded=keep_models_loaded,
         verbose=verbose,
     ))
