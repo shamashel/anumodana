@@ -5,13 +5,14 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 GLOSSARY_ROOT = PROJECT_ROOT / "glossaries"
 
 DEFAULT_GLOSSARY_FILES = [
     GLOSSARY_ROOT / "core_chants.txt",
     GLOSSARY_ROOT / "core_theravada_terms.txt",
-    GLOSSARY_ROOT / "lineages" / "ajahn_chah.txt",
+    GLOSSARY_ROOT / "lineages" / "ajahn_chah" / "teachers.txt",
+    GLOSSARY_ROOT / "lineages" / "ajahn_chah" / "lineage_terms.txt",
     GLOSSARY_ROOT / "local_teachers_and_places.txt",
 ]
 

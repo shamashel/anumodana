@@ -32,24 +32,6 @@ Goals:
 - Keep the speaker's meaning and tone.
 - Keep each output item aligned to the same numbered input item.
 
-Important Buddhist corrections:
-- "Namo tassa bhagavato arahato samma-sambuddhassa"
-- "Buddham saranam gacchami"
-- "Dhammam saranam gacchami"
-- "Sangham saranam gacchami"
-- "Ajahn Chah"
-- "Ajahn Mahabua"
-- "Ajahn"
-- "Theravada"
-- "Dhamma"
-- "Sangha"
-- "Bodhi tree"
-- "samsara"
-- "anumodana"
-- "Mahamangala Sutta"
-- "sadhu"
-- "metta"
-
 Rules:
 - Do not rewrite timestamps or numbering.
 - Do not summarize.

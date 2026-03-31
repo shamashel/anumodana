@@ -1,0 +1,62 @@
+# Monasteries, locations, and lineage-specific terms.
+
+# Monasteries
+Abhayagiri
+Abhayagiri Buddhist Monastery
+Cittaviveka
+Chithurst
+Chithurst Buddhist Monastery
+Amaravati
+Amaravati Buddhist Monastery
+Aruna Ratanagiri
+Harnham Buddhist Monastery
+Harnham
+Wat Pah Pong
+Wat Nong Pah Pong
+Wat Pah Nanachat
+Wat Nanachat
+
+# Locations
+Bung Wai
+Ubon Ratchathani
+Jeta Grove
+Temple Forest Monastery
+
+# Lineage-Specific Terms
+kuti
+tudong
+pindapat
+alms-round
+alms-food
+almsgiving
+alms-bowl
+alms-mendicant
+forest tradition
+forest monastery
+forest monk
+borapet
+ahya
+glot
+arom
+bahp
+pa-kow
+plah
+Songkran
+Tort Pa Ba
+wai
+woon wai
+Rains Retreat
+Winter Retreat
+
+# Common ASR corruptions
+Wat Nanachat => Wat Pah Nanachat
+Wat Nong Pah Pong => Wat Pah Pong
+Wat Pah Pon => Wat Pah Pong
+Pindapat => pindapat
+Kuti => kuti
+Tudong => tudong
+Almsround => alms-round
+Alms food => alms-food
+Almsbowl => alms-bowl
+Borapet => borapet
+Wai => wai

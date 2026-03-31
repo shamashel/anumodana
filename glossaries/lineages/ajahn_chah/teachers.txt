@@ -1,0 +1,60 @@
+# Ajahn Chah lineage teachers and titles.
+# Prefer these spellings for transcript consistency.
+
+Ajahn Chah
+Ajahn Sumedho
+Ajahn Amaro
+Ajahn Pasanno
+Ajahn Jayasaro
+Ajahn Liem
+Ajahn Mun
+Ajahn Sao
+Ajahn Tate
+Ajahn Tongrat
+Ajahn Kevali
+Ajahn Maha Boowa
+Ajahn Maha Bua
+Ajahn Maha Amorn
+Ajahn Munindo
+Ajahn Preechar
+Ajahn Preechar Jutindharo
+
+# Variations and Titles
+Luang Por
+Luang Bu
+Luang Da
+Luang Pi
+Tan Ajahn
+Chao Khun
+Tan Chao Khun
+Pra
+Phra
+Ven. Ajahn
+Tan
+Aj.
+
+# Common variations from style guide
+Luang Por Chah
+Luang Bu Chah
+Luang Por Sumedho
+Luang Por Sumedhajahn
+Luang Por Pasanno
+Luang Por Liem
+Luang Bu Mun
+Luang Bu Tate
+Luang Da Maha Boowa
+Luang Por Munindo
+
+# Common ASR corruptions
+Achan => Ajahn
+Ajan => Ajahn
+Achan Chah => Ajahn Chah
+Achan Shah => Ajahn Chah
+Achan Mahapua => Ajahn Maha Bua
+Achan Mahaboowa => Ajahn Maha Boowa
+Luan Por => Luang Por
+Luan Bu => Luang Bu
+Luan Pi => Luang Pi
+Luan Da => Luang Da
+Tan Achan => Tan Ajahn
+Tan Ajan => Tan Ajahn
