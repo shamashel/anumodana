@@ -5,10 +5,7 @@ Ajahn Chah
 Ajahn Sumedho
 Ajahn Amaro
 Ajahn Jayasaro
-Ajahn Mahabua
-Ajahn Wade Bhuripanyo
-Ajahn Wade
-Bhuripanyo
+Ajahn Maha Bua
 Thai Forest tradition
 Thai Forest lineage
 Wat Pah Pong
@@ -20,4 +17,3 @@ Ajan Cha => Ajahn Chah
 Achan Chah => Ajahn Chah
 Achan Shah => Ajahn Chah
 Achan Mahapua => Ajahn Mahabua
-Buripanyo => Bhuripanyo
