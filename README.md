@@ -190,12 +190,16 @@ At the root of that revision tree, it also writes:
 
 ## Glossaries
 
-The default fixer stack loads these files in order:
+The AI fixer pass uses a collection of glossary files to correct terminology and names. 
 
-- `glossaries/core_chants.txt`
-- `glossaries/core_theravada_terms.txt`
-- `glossaries/lineages/ajahn_chah.txt`
-- `glossaries/local_teachers_and_places.txt`
+By default, the pipeline automatically discovers and loads all `.txt` files in the `glossaries/` directory tree, searching recursively. This stack typically includes:
+
+- `glossaries/core_chants.txt`: Standard Pali refuge formulas and homage.
+- `glossaries/core_theravada_terms.txt`: Core Pali vocabulary (metta, kamma, etc.) in ASCII.
+- `glossaries/lineages/ajahn_chah/`: Specialized terms and teacher names for the Thai Forest tradition.
+- `glossaries/local_teachers_and_places.txt`: A landing spot for your own custom additions.
+
+To add new terms, you can simply create a new `.txt` file anywhere under the `glossaries/` folder.
 
 This makes it easier to adapt the project for a different monastery, lineage, or local community.
 

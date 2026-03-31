@@ -8,13 +8,12 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 GLOSSARY_ROOT = PROJECT_ROOT / "glossaries"
 
-DEFAULT_GLOSSARY_FILES = [
-    GLOSSARY_ROOT / "core_chants.txt",
-    GLOSSARY_ROOT / "core_theravada_terms.txt",
-    GLOSSARY_ROOT / "lineages" / "ajahn_chah" / "teachers.txt",
-    GLOSSARY_ROOT / "lineages" / "ajahn_chah" / "lineage_terms.txt",
-    GLOSSARY_ROOT / "local_teachers_and_places.txt",
-]
+def find_default_glossaries() -> list[Path]:
+    """Discover all .txt files in the glossaries directory tree."""
+    if not GLOSSARY_ROOT.exists():
+        return []
+    # Use rglob to recursively find all .txt files.
+    return sorted(GLOSSARY_ROOT.rglob("*.txt"))
 
 
 def build_glossary_paths(
@@ -22,7 +21,7 @@ def build_glossary_paths(
     *,
     include_defaults: bool = True,
 ) -> list[Path]:
-    glossary_paths = [] if not include_defaults else list(DEFAULT_GLOSSARY_FILES)
+    glossary_paths = [] if not include_defaults else find_default_glossaries()
     glossary_paths.extend(Path(path).expanduser().resolve() for path in extra_paths)
     return glossary_paths
 
